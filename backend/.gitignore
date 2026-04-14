@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.env
+_tab_cache.json
+_probe_*.py
+_probe_*.txt

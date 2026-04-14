@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AU Greyhound Race Panel</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0f1117;color:#e1e4e8;line-height:1.4;font-size:13px}
+.layout{display:flex;min-height:100vh}
+.alert-panel{width:260px;min-width:260px;background:#161b22;border-right:1px solid #30363d;padding:.6rem;overflow-y:auto;position:sticky;top:0;height:100vh}
+.alert-panel h2{font-size:.85rem;color:#8b949e;margin-bottom:.5rem;display:flex;justify-content:space-between;align-items:center}
+.alert-panel .clear-btn{background:none;border:1px solid #30363d;color:#8b949e;padding:.15rem .5rem;border-radius:4px;cursor:pointer;font-size:.7rem}
+.alert-panel .clear-btn:hover{background:#21262d;color:#e1e4e8}
+.alert-item{background:#1a1208;border:1px solid #d4803a;border-radius:6px;padding:.4rem .6rem;margin-bottom:.4rem;cursor:pointer;font-size:.75rem;transition:background .15s}
+.alert-item:hover{background:#2a1a0e}
+.alert-item .a-title{color:#e85d3a;font-weight:700}
+.alert-item .a-new{background:#e85d3a;color:#fff;font-size:.6rem;padding:1px 4px;border-radius:3px;margin-left:4px}
+.alert-item .a-meta{color:#8b949e;font-size:.68rem}
+.no-alerts{color:#484f58;font-size:.75rem;text-align:center;padding:1rem 0}
+.date-filter{margin-bottom:.8rem;border-bottom:1px solid #30363d;padding-bottom:.6rem}
+.date-filter h3{font-size:.8rem;color:#8b949e;margin-bottom:.4rem}
+.date-btns{display:flex;flex-wrap:wrap;gap:.3rem}
+.date-btn{background:#0d1117;border:1px solid #30363d;color:#8b949e;padding:.25rem .5rem;border-radius:4px;font-size:.7rem;cursor:pointer;flex:1;text-align:center;transition:all .15s}
+.date-btn:hover{background:#21262d;color:#e1e4e8}
+.date-btn.active{background:#1f6feb;border-color:#1f6feb;color:#fff;font-weight:600}
+.header-right{display:flex;align-items:center;gap:.6rem}
+.dot-menu-wrap{position:relative}
+.dot-menu-btn{background:none;border:1px solid #30363d;color:#8b949e;font-size:1.2rem;padding:.1rem .4rem;border-radius:4px;cursor:pointer;line-height:1}
+.dot-menu-btn:hover{background:#21262d;color:#e1e4e8}
+.dot-menu{display:none;position:absolute;right:0;top:100%;margin-top:4px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:.4rem;min-width:140px;z-index:20;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+.dot-menu.open{display:block}
+.dot-menu-title{font-size:.7rem;color:#8b949e;padding:.2rem .4rem;font-weight:600}
+.load-status{font-size:.75rem;color:#8b949e;display:flex;align-items:center;gap:4px}
+.load-status .spinner{width:12px;height:12px;border:2px solid #30363d;border-top-color:#58a6ff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-status.done{color:#56d364}
+.racecard-list h3{font-size:.8rem;color:#8b949e;margin-bottom:.4rem}
+.racecard-list-item{display:flex;justify-content:space-between;align-items:center;padding:.3rem .5rem;border-radius:4px;font-size:.75rem;cursor:pointer;transition:background .1s}
+.racecard-list-item:hover{background:#21262d}
+.racecard-list-item.active{background:#1f6feb;color:#fff}
+.racecard-list-item.active .rc-name{color:#fff}
+.racecard-list-item.active .rc-count{color:#c9d1d9}
+.racecard-list-item .rc-name{color:#e1e4e8;font-weight:500}
+.racecard-list-item .rc-count{color:#8b949e;font-size:.68rem}
+.app{flex:1;max-width:1400px;padding:.8rem;scroll-padding-top:70px}
+.app-header{display:flex;justify-content:space-between;align-items:center;padding:.6rem .8rem;border-bottom:1px solid #2d333b;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem;position:sticky;top:0;z-index:10;background:#0f1117}
+.app-header h1{font-size:1.2rem;font-weight:600}
+.countdown{font-size:.75rem;color:#8b949e;margin-left:.5rem}
+.legend{display:flex;gap:.8rem;flex-wrap:wrap;font-size:.7rem;color:#8b949e}
+.legend-item{display:flex;align-items:center;gap:3px}
+.loading{text-align:center;padding:2rem;color:#8b949e}
+.error-banner{background:#3d1f1f;border:1px solid #6e3030;color:#f8a0a0;padding:.5rem .8rem;border-radius:6px;margin-bottom:.8rem}
+.empty-state{text-align:center;padding:2rem;color:#6e7681}
+.racecard{background:#161b22;border:1px solid #30363d;border-radius:8px;margin-bottom:.6rem;overflow:hidden}
+.racecard.highlighted{border-color:#1f6feb;box-shadow:0 0 0 1px rgba(31,111,235,.3)}
+.rc-grid{display:grid;grid-template-columns:auto 1fr}
+.rc-info{position:sticky;left:0;z-index:2;background:#1c2128;border-right:1px solid #30363d;display:flex;flex-direction:column;justify-content:center;padding:.4rem .8rem;min-width:160px;white-space:nowrap}
+.rc-info .track-name{font-weight:700;font-size:.9rem}.rc-info .track-meta{font-size:.72rem;color:#8b949e}
+.rc-races{overflow-x:auto;display:flex;flex-direction:column}
+.rc-header-row{display:flex;border-bottom:1px solid #21262d;background:#1c2128;position:sticky;top:0}
+.rc-header-row .rc-cell{padding:.25rem .5rem;text-align:center;font-weight:700;color:#58a6ff;font-size:.8rem;min-width:72px;border-right:1px solid #21262d}
+.rc-data-row{display:flex}
+.rc-cell{padding:.3rem .5rem;text-align:center;min-width:72px;border-right:1px solid #161b22;font-size:.78rem;white-space:nowrap;display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer}
+.rc-cell .r-time{color:#c9d1d9}.rc-cell .r-alert{color:#e85d3a;font-weight:700;font-size:.72rem}
+.rc-cell .r-status{font-size:.6rem;font-weight:700}
+.rc-cell .r-status.finished{color:#8b949e}.rc-cell .r-status.abandoned{color:#e85d3a}
+.rc-cell.bad-ew{background:#2a1008;border:1px solid #e85d3a}.rc-cell.bad-ew:hover{background:#3a1a0e}
+.rc-cell.nearly-bad{background:#1a1808;border:1px solid #e8853a}.rc-cell.nearly-bad:hover{background:#2a2010}
+.rc-cell.ever-bad{background:#1a120855}
+.rc-cell:not(.bad-ew):hover{background:#1c2128}
+@keyframes pulseRed{0%{box-shadow:0 0 0 0 rgba(232,93,58,.6)}70%{box-shadow:0 0 0 6px rgba(232,93,58,0)}100%{box-shadow:0 0 0 0 rgba(232,93,58,0)}}
+.rc-cell.new-bad{animation:pulseRed .8s ease 2}
+.rc-hdr.selected{background:#1f6feb !important;color:#fff !important}
+.rc-cell .r-status{font-size:.6rem;font-weight:700;order:-1}
+.r-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.detail-panel{background:#161b22;border:1px solid #d4803a;border-radius:0 0 8px 8px;margin-top:-1px;margin-bottom:.6rem;overflow:hidden;animation:fadeIn .15s ease;display:inline-block;min-width:550px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.detail-header{padding:.7rem 1rem;background:#1c2128;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.4rem}
+.detail-header h2{font-size:1rem;font-weight:600}
+.detail-meta{display:flex;gap:.8rem;flex-wrap:wrap;font-size:.8rem;color:#8b949e}
+.detail-meta span{display:flex;align-items:center;gap:.2rem}
+.detail-stat{padding:.15rem .4rem;border-radius:4px;font-size:.75rem}
+.detail-stat.bad{background:#3d1f1f;color:#e85d3a}
+.detail-close{background:none;border:1px solid #30363d;color:#8b949e;padding:.2rem .6rem;border-radius:5px;cursor:pointer;font-size:.8rem}
+.detail-close:hover{background:#21262d;color:#e1e4e8}
+.runner-wrap{overflow-x:auto;padding:.4rem}
+.runner-tbl{min-width:700px;border-collapse:collapse;font-size:.78rem}
+.runner-tbl th.l,.runner-tbl td.l{min-width:200px}
+.runner-tbl th.note-col,.runner-tbl td.note-col{min-width:180px}
+.runner-tbl th{background:#1c2128;color:#c9d1d9;font-weight:600;text-align:center;padding:.4rem .5rem;border-bottom:1px solid #30363d;white-space:nowrap}
+.runner-tbl th.l{text-align:left}.runner-tbl th.gh{background:#161b22;color:#58a6ff;font-size:.75rem;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #30363d;padding:.5rem}
+.runner-tbl td{padding:.4rem .5rem;border-bottom:1px solid #21262d;text-align:center;white-space:nowrap}
+.runner-tbl td.l{text-align:left}
+.runner-tbl tbody tr:hover{background:#1c2128}
+.runner-tbl tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
+.rn{font-weight:500;max-width:170px;overflow:hidden;text-overflow:ellipsis}
+.runner-nr{color:#e85d3a;opacity:.7}
+.runner-nr td{color:#e85d3a !important}
+.div-r{border-right:2px solid #3b82f6 !important}
+.ov{color:#e1e4e8}.sp{color:#d4a72c;font-style:italic;font-size:.75rem}
+.p{font-size:.72rem}.ph{color:#56d364}.pm{color:#d4a72c}.pl{color:#8b949e}.na{color:#484f58}
+.arrow-up{color:#56d364;font-size:.7rem;margin-left:2px;display:inline-block;animation:arrowPop 8s ease forwards}
+.arrow-down{color:#e85d3a;font-size:.7rem;margin-left:2px;display:inline-block;animation:arrowPop 8s ease forwards}
+@keyframes arrowPop{0%{opacity:1;transform:scale(1.3)}20%{transform:scale(1)}90%{opacity:1}100%{opacity:0}}
+.price-up{}
+.price-down{}
+@keyframes flashGreen{0%{background:#1a3a1a}50%{background:#1a3a1a}100%{background:transparent}}
+@keyframes flashRed{0%{background:#3a1a1a}50%{background:#3a1a1a}100%{background:transparent}}
+@media(max-width:900px){.layout{flex-direction:column}.alert-panel{width:100%;min-width:0;height:auto;position:relative;max-height:150px}.rc-info{min-width:120px;padding:.3rem .5rem}.rc-cell{min-width:60px;padding:.2rem .3rem}}
+
+/* Tabs */
+.view-tabs{display:flex;gap:0;margin-bottom:.8rem}
+.view-tab{padding:.4rem 1rem;border:1px solid #30363d;background:#0d1117;color:#8b949e;cursor:pointer;font-size:.8rem;font-weight:500;transition:all .15s}
+.view-tab:first-child{border-radius:6px 0 0 6px}.view-tab:last-child{border-radius:0 6px 6px 0}
+.view-tab.active{background:#1f6feb;border-color:#1f6feb;color:#fff}
+.view-tab:hover:not(.active){background:#161b22}
+
+/* Bad EW summary */
+.bad-ew-summary{margin-bottom:.8rem}
+.bad-ew-item{background:#1a1208;border:1px solid #d4803a;border-radius:6px;padding:.5rem .8rem;margin-bottom:.4rem;cursor:pointer;font-size:.8rem}
+.bad-ew-item:hover{background:#2a1a0e}
+.bad-ew-item .bei-track{color:#e1e4e8;font-weight:600}
+.bad-ew-item .bei-detail{color:#8b949e;font-size:.72rem}
+.copy-btn{background:#238636;color:#fff;border:none;padding:.3rem .8rem;border-radius:5px;font-size:.78rem;cursor:pointer;font-weight:500;margin-bottom:.6rem}
+.copy-btn:hover{background:#2ea043}
+.copy-btn:disabled{background:#21262d;color:#484f58;cursor:default}
+.copy-feedback{color:#56d364;font-size:.72rem;margin-left:.5rem}
+
+/* Simple race analysis view */
+.sv-track{margin-bottom:1rem}
+.sv-track-header{font-size:.9rem;font-weight:600;color:#e1e4e8;padding:.4rem .5rem;border-bottom:1px solid #30363d;margin-bottom:.3rem;cursor:pointer;user-select:none}
+.sv-track-header span{color:#8b949e;font-weight:400;font-size:.8rem}
+.sv-race{display:grid;grid-template-columns:36px 130px 200px 2px 55px 100px 100px 120px 80px;align-items:center;gap:0 .4rem;padding:.35rem .5rem;border-radius:4px;font-size:.8rem;border-left:3px solid transparent}
+.sv-race:hover{background:#161b22}
+.sv-race.sv-bad{border-left-color:#e85d3a;background:#1a0808}
+.sv-race.sv-nearly{border-left-color:#e8853a;background:#1a1208}
+.sv-rnum{color:#58a6ff;font-weight:700}
+.sv-time{color:#c9d1d9;font-size:.75rem}
+.sv-runners{color:#8b949e;font-size:.75rem;text-align:center}
+.sv-ew{color:#58a6ff;font-size:.72rem}
+.sv-col{font-size:.75rem}
+.sv-col-header{font-weight:600;color:#8b949e;font-size:.7rem;text-transform:uppercase}
+.sv-win{color:#c9d1d9}.sv-ewpct{color:#c9d1d9}
+.sv-threshold{color:#8b949e;font-size:.75rem}
+.sv-status{font-size:.75rem;font-weight:600}
+.sv-ok{color:#56d364}
+.sv-bad-label{color:#e85d3a;font-weight:700}
+.sv-near-label{color:#e8853a;font-weight:600}
+.sv-divider{width:2px;background:#3b82f6;align-self:stretch;justify-self:center}
+.sv-controls{display:flex;gap:.5rem;margin-bottom:.6rem}
+.sv-toggle-btn{background:none;border:1px solid #30363d;color:#8b949e;padding:.2rem .6rem;border-radius:4px;cursor:pointer;font-size:.72rem}
+.sv-toggle-btn:hover{background:#21262d;color:#e1e4e8}
+body.light .sv-toggle-btn{border-color:#d0d7de;color:#656d76}
+body.light .sv-toggle-btn:hover{background:#eaeef2;color:#1f2328}
+
+body.light .sv-track-header{color:#1f2328;border-color:#d0d7de}
+body.light .sv-race:hover{background:#f6f8fa}
+body.light .sv-race.sv-bad{background:#fef2f2;border-left-color:#dc2626}
+body.light .sv-race.sv-nearly{background:#fff7ed;border-left-color:#ea580c}
+body.light .sv-rnum{color:#0969da}
+body.light .sv-time{color:#1f2328}
+body.light .sv-ew{color:#0969da}
+body.light .sv-win{color:#1f2328}.sv-ewpct{color:#1f2328}
+body.light .sv-threshold{color:#656d76}
+body.light .sv-divider{background:#0969da}
+
+.sv-track.highlighted{border:1px solid #1f6feb;border-radius:6px;box-shadow:0 0 0 1px rgba(31,111,235,.3)}
+body.light .sv-track.highlighted{border-color:#0969da;box-shadow:0 0 0 1px rgba(9,105,218,.3)}
+
+/* Bad EW cards */
+.bew-card{background:#161b22;border:1px solid #d4803a;border-radius:6px;margin-bottom:.4rem;overflow:hidden;transition:border-color .15s}
+.bew-card:hover{border-color:#e8853a}
+.bew-card-row{display:grid;grid-template-columns:180px 160px 1fr;align-items:center;gap:0 .5rem;padding:.4rem .8rem;font-size:.78rem}
+.bew-card-row .track-name{font-weight:700;font-size:.8rem;color:#e1e4e8;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bew-card-row .track-name:hover{text-decoration:underline}
+.bew-note{min-width:0;overflow:hidden}
+.bew-note input{width:100%;background:transparent;border:none;border-bottom:1px dashed #484f58;color:#58a6ff;font-size:.75rem;padding:.15rem .2rem;font-family:inherit;outline:none;font-weight:500}
+.bew-note input:focus{border-color:#58a6ff;border-style:solid}
+.bew-note input::placeholder{color:#484f58;font-weight:400;font-style:italic}
+.bew-races{display:flex;flex-wrap:wrap;align-items:center;gap:0}
+.bew-race{padding:.1rem .35rem;font-size:.75rem;color:#d4a72c;font-weight:500;white-space:nowrap}
+.bew-race .bew-time{font-weight:700;color:#e1e4e8}
+.bew-divider{color:#30363d;padding:0 .05rem;font-size:.75rem}
+
+body.light .bew-card{background:#fff;border-color:#b45309}
+body.light .bew-card-row .track-name{color:#1f2328}
+body.light .bew-race{color:#92400e;font-weight:600}
+body.light .bew-race .bew-time{color:#1f2328}
+body.light .bew-divider{color:#d0d7de}
+body.light .bew-note input{border-color:#c9d1d9;color:#0969da;font-weight:600}
+body.light .bew-note input:focus{border-color:#0969da}
+body.light .bew-note input::placeholder{color:#8b949e}
+
+/* Theme */
+.theme-selector{margin-top:.8rem;border-top:1px solid #30363d;padding-top:.6rem}
+.theme-selector h3{font-size:.8rem;color:#8b949e;margin-bottom:.3rem}
+.theme-opt{display:flex;align-items:center;gap:4px;padding:.2rem .4rem;border-radius:3px;cursor:pointer;font-size:.7rem;color:#8b949e}
+.theme-opt:hover{background:#21262d}
+.theme-opt.active{color:#58a6ff;font-weight:600}
+
+/* Light theme */
+body.light{background:#f6f8fa;color:#1f2328}
+body.light .layout{background:#f6f8fa}
+body.light .alert-panel{background:#fff;border-color:#d0d7de}
+body.light .app-header{background:#f6f8fa;border-color:#d0d7de}
+body.light .racecard{background:#fff;border-color:#d0d7de}
+body.light .racecard.highlighted{border-color:#0969da}
+body.light .rc-info{background:#f6f8fa;border-color:#d0d7de}
+body.light .rc-header-row{background:#f6f8fa}
+body.light .rc-cell{border-color:#eaeef2;color:#1f2328}
+body.light .rc-cell .r-time{color:#1f2328}
+body.light .rc-cell:hover{background:#eaeef2}
+body.light .rc-cell.bad-ew{background:#fee2e2;border-color:#dc2626}
+body.light .rc-cell.bad-ew:hover{background:#fecaca}
+body.light .rc-cell.nearly-bad{background:#fff7ed;border-color:#ea580c}
+body.light .rc-cell.nearly-bad:hover{background:#ffedd5}
+body.light .detail-panel{background:#fff;border-color:#b45309}
+body.light .detail-header{background:#f6f8fa;border-color:#d0d7de;color:#1f2328}
+body.light .detail-header h2{color:#1f2328}
+body.light .detail-meta{color:#656d76}
+body.light .detail-stat.bad{background:#fef3c7;color:#92400e}
+body.light .runner-tbl th{background:#f6f8fa;color:#1f2328;border-color:#d0d7de}
+body.light .runner-tbl th.gh{background:#eef2ff;color:#0969da;border-color:#c8d1e0}
+body.light .runner-tbl td{border-color:#eaeef2;color:#1f2328}
+body.light .runner-tbl tbody tr:hover{background:#f6f8fa}
+body.light .runner-nr{color:#dc2626;opacity:.85}
+body.light .runner-nr td{color:#dc2626 !important}
+body.light .div-r{border-right-color:#0969da !important}
+body.light .ov{color:#1f2328}
+body.light .na{color:#8b949e}
+body.light .sp{color:#9a6700;font-weight:600}
+body.light .ph{color:#116329}
+body.light .pm{color:#7c4d12}
+body.light .pl{color:#656d76}
+body.light .p{color:#1f2328}
+body.light .date-btn{background:#fff;border-color:#d0d7de;color:#1f2328}
+body.light .date-btn:hover{background:#eaeef2}
+body.light .date-btn.active{background:#0969da;border-color:#0969da;color:#fff}
+body.light .view-tab{background:#fff;border-color:#d0d7de;color:#1f2328}
+body.light .view-tab:hover:not(.active){background:#eaeef2;color:#1f2328}
+body.light .view-tab.active{background:#0969da;border-color:#0969da;color:#fff}
+body.light .alert-item{background:#fef3c7;border-color:#b45309}
+body.light .alert-item .a-title{color:#92400e;font-weight:700}
+body.light .alert-item .a-meta{color:#78350f}
+body.light .bad-ew-item{background:#fef3c7;border-color:#b45309;color:#1f2328}
+body.light .bad-ew-item td{color:#1f2328 !important}
+body.light .dot-menu{background:#fff;border-color:#d0d7de;box-shadow:0 4px 12px rgba(0,0,0,.1)}
+body.light .dot-menu-btn{border-color:#d0d7de;color:#1f2328}
+body.light .dot-menu-title{color:#1f2328}
+body.light .theme-opt{color:#1f2328}
+body.light .racecard-list-item .rc-name{color:#1f2328}
+body.light .racecard-list-item .rc-count{color:#656d76}
+body.light .racecard-list-item:hover{background:#eaeef2}
+body.light .racecard-list-item.active{background:#0969da;color:#fff}
+body.light .racecard-list-item.active .rc-name{color:#fff}
+body.light .racecard-list-item.active .rc-count{color:#dbeafe}
+body.light .alert-panel h2{color:#1f2328}
+body.light .date-filter h3{color:#1f2328}
+body.light .racecard-list h3{color:#1f2328}
+body.light .no-alerts{color:#656d76}
+body.light .countdown{color:#116329}
+body.light .legend{color:#1f2328}
+body.light .copy-btn{background:#0969da}
+body.light .detail-close{border-color:#d0d7de;color:#1f2328}
+body.light .detail-close:hover{background:#eaeef2}
+
+/* Race count in racecard */
+.rc-info .race-total{font-size:.7rem;color:#58a6ff;font-weight:500}
+body.light .rc-info .race-total{color:#0969da}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="alert-panel" id="alert-panel">
+    <div class="date-filter">
+      <h3>📅 Date</h3>
+      <div class="date-btns">
+        <button class="date-btn" data-offset="-1">Yesterday</button>
+        <button class="date-btn active" data-offset="0">Today</button>
+        <button class="date-btn" data-offset="1">Tomorrow</button>
+        <button class="date-btn" data-offset="2">Future</button>
+      </div>
+    </div>
+    <div id="racecard-list" class="racecard-list"></div>
+    <h2 style="margin-top:.8rem">⚠️ Alerts <button class="clear-btn" id="clear-alerts-btn">Clear</button></h2>
+    <div id="alert-list"><div class="no-alerts">No alerts yet</div></div>
+    <div class="theme-selector" style="display:none">
+      <h3>🎨 Appearance</h3>
+      <div class="theme-opt active" data-theme="dark">● Dark</div>
+      <div class="theme-opt" data-theme="light">○ Light</div>
+    </div>
+  </aside>
+  <div class="app">
+    <header class="app-header">
+      <h1>🐕 AU Greyhound Race Panel</h1>
+      <div class="header-right">
+        <span class="load-status" id="load-status"></span>
+        <span class="countdown" id="countdown"></span>
+      </div>
+      <div class="legend">
+        <span class="legend-item"><span class="r-dot" style="background:#56d364"></span> TAB live</span>
+        <span class="legend-item"><span class="r-dot" style="background:#6e7681"></span> Finished</span>
+        <span class="legend-item">🔴 Bad EW</span>
+        <span class="legend-item">🟠 Nearly</span>
+        <div class="dot-menu-wrap">
+          <button class="dot-menu-btn" id="dot-menu-btn">⋮</button>
+          <div class="dot-menu" id="dot-menu">
+            <div class="dot-menu-title">🎨 Appearance</div>
+            <div class="theme-opt" data-theme="system">○ System</div>
+            <div class="theme-opt active" data-theme="dark">● Dark</div>
+            <div class="theme-opt" data-theme="light">○ Light</div>
+          </div>
+        </div>
+      </div>
+    </header>
+    <div class="view-tabs">
+      <div class="view-tab active" data-view="all">📋 Full View</div>
+      <div class="view-tab" data-view="simple">📊 Race Analysis</div>
+      <div class="view-tab" data-view="badew">⚠️ Bad EW Races</div>
+    </div>
+    <div id="simple-view" style="display:none">
+      <div id="simple-summary" style="font-size:.8rem;color:#8b949e;margin-bottom:.6rem"></div>
+      <div id="simple-list"></div>
+    </div>
+    <div id="bad-ew-view" style="display:none">
+      <button class="copy-btn" id="copy-bad-ew" disabled>Copy Bad EW Races</button>
+      <span class="copy-feedback" id="copy-feedback"></span>
+      <div id="bad-ew-list"></div>
+    </div>
+    <main id="main"></main>
+  </div>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const main = $("#main");
+const alertList = $("#alert-list");
+const countdownEl = $("#countdown");
+const loadStatus = $("#load-status");
+
+let tracksData = [];
+let prevPrices = {};
+let prevBadEW = {};
+let everBadEW = {};
+let alertedBefore = {};
+let alerts = [];
+let isFirstLoad = true;
+let countdownInterval = null;
+const REFRESH_INTERVAL = 30;
+
+// Per-date cache: { dateStr: { tracksData, prevPrices, prevBadEW, everBadEW, alertedBefore, alerts, isFirstLoad } }
+const dateCache = {};
+
+function saveDateCache() {
+  dateCache[selectedDate] = {
+    tracksData, prevPrices: {...prevPrices}, prevBadEW: {...prevBadEW},
+    everBadEW: {...everBadEW}, alertedBefore: {...alertedBefore},
+    alerts: [...alerts], isFirstLoad,
+  };
+}
+
+function restoreDateCache(dateStr) {
+  const c = dateCache[dateStr];
+  if (!c) return false;
+  tracksData = c.tracksData;
+  prevPrices = {...c.prevPrices}; prevBadEW = {...c.prevBadEW};
+  everBadEW = {...c.everBadEW}; alertedBefore = {...c.alertedBefore};
+  alerts = [...c.alerts]; isFirstLoad = c.isFirstLoad;
+  return true;
+}
+
+function purgeOldCache() {
+  const yesterday = getDateStr(-1);
+  for (const d of Object.keys(dateCache)) {
+    if (d < yesterday) delete dateCache[d];
+  }
+}
+
+// Bad EW notes — persisted to localStorage
+let bewNotes = {};
+try { bewNotes = JSON.parse(localStorage.getItem("bewNotes") || "{}"); } catch {}
+function saveBewNotes() { try { localStorage.setItem("bewNotes", JSON.stringify(bewNotes)); } catch {} }
+
+// Date helpers — use Australian date (AEST/AEDT)
+function getDateStr(offset) {
+  // Get current date in Australia/Sydney timezone
+  const now = new Date();
+  const ausStr = now.toLocaleDateString("en-CA", { timeZone: "Australia/Sydney" }); // YYYY-MM-DD format
+  const aus = new Date(ausStr + "T12:00:00"); // noon to avoid DST edge
+  aus.setDate(aus.getDate() + offset);
+  return `${aus.getFullYear()}-${String(aus.getMonth()+1).padStart(2,'0')}-${String(aus.getDate()).padStart(2,'0')}`;
+}
+
+let selectedDateOffset = 0;
+let selectedDate = getDateStr(0);
+
+// Date filter buttons
+document.querySelectorAll(".date-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".date-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    // Save current date state before switching
+    if (tracksData.length) saveDateCache();
+    stopAutoRefresh();
+    selectedDateOffset = parseInt(btn.dataset.offset);
+    selectedDate = getDateStr(selectedDateOffset);
+    purgeOldCache();
+    // Try restore from cache
+    if (restoreDateCache(selectedDate)) {
+      renderAlerts();
+      selectedCell = null;
+      renderAll();
+      renderRacecardList();
+      if (currentView === "simple") renderSimpleView();
+      else if (currentView === "badew") renderBadEWView();
+      loadStatus.className = "load-status done";
+      loadStatus.innerHTML = "✓ From cache";
+      setTimeout(() => { loadStatus.textContent = ""; }, 1500);
+      startAutoRefresh();
+    } else {
+      // Fresh load
+      isFirstLoad = true; prevPrices = {}; prevBadEW = {}; everBadEW = {}; alertedBefore = {};
+      alerts = []; renderAlerts(); tracksData = []; fetchRaces();
+    }
+  });
+});
+
+$("#clear-alerts-btn").addEventListener("click", () => { alerts = []; renderAlerts(); });
+
+// 3-dot menu toggle
+$("#dot-menu-btn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  $("#dot-menu").classList.toggle("open");
+});
+document.addEventListener("click", () => $("#dot-menu").classList.remove("open"));
+
+// Theme selector
+document.querySelectorAll(".dot-menu .theme-opt").forEach(opt => {
+  opt.addEventListener("click", (e) => {
+    e.stopPropagation();
+    document.querySelectorAll(".dot-menu .theme-opt").forEach(o => { o.classList.remove("active"); o.textContent = o.textContent.replace("●","○"); });
+    opt.classList.add("active");
+    opt.textContent = opt.textContent.replace("○","●");
+    const theme = opt.dataset.theme;
+    if (theme === "system") {
+      document.body.className = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "";
+    } else {
+      document.body.className = theme === "light" ? "light" : "";
+    }
+  });
+});
+
+// View tabs
+let currentView = "all";
+document.querySelectorAll(".view-tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".view-tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    currentView = tab.dataset.view;
+    main.style.display = "none";
+    $("#bad-ew-view").style.display = "none";
+    $("#simple-view").style.display = "none";
+    if (currentView === "simple") {
+      $("#simple-view").style.display = "block";
+      renderSimpleView();
+    } else if (currentView === "badew") {
+      $("#bad-ew-view").style.display = "block";
+      renderBadEWView();
+    } else {
+      main.style.display = "block";
+    }
+  });
+});
+
+// Copy Bad EW
+$("#copy-bad-ew").addEventListener("click", () => {
+  const plain = buildBadEWCopyText();
+  const html = buildBadEWCopyHtml();
+  if (plain) {
+    // Try rich HTML copy first, fallback to plain
+    try {
+      const blob = new Blob([html], { type: "text/html" });
+      const plainBlob = new Blob([plain], { type: "text/plain" });
+      navigator.clipboard.write([new ClipboardItem({ "text/html": blob, "text/plain": plainBlob })]).then(() => {
+        const fb = $("#copy-feedback");
+        fb.textContent = "✓ Copied!";
+        setTimeout(() => fb.textContent = "", 2000);
+      });
+    } catch {
+      navigator.clipboard.writeText(plain).then(() => {
+        const fb = $("#copy-feedback");
+        fb.textContent = "✓ Copied!";
+        setTimeout(() => fb.textContent = "", 2000);
+      });
+    }
+  }
+});
+
+// Generate Email — opens Outlook with pre-filled Bad EW races
+function renderBadEWView() {
+  const merged = mergeExtraTracks(tracksData);
+  const byTrack = {};
+  const trackMeta = {};
+  for (const t of merged) {
+    for (const r of (t.races || [])) {
+      const rKey = `${t.track}-${r.race_number}`;
+      if (r.bad_each_way || r.nearly_bad_ew || everBadEW[rKey]) {
+        if (!byTrack[t.track]) { byTrack[t.track] = []; trackMeta[t.track] = t; }
+        byTrack[t.track].push(r);
+      }
+    }
+  }
+  const list = $("#bad-ew-list");
+  const btn = $("#copy-bad-ew");
+  const tracks = Object.keys(byTrack);
+  if (!tracks.length) {
+    list.innerHTML = '<div class="no-alerts">No Bad EW races found</div>';
+    btn.disabled = true;
+    return;
+  }
+  btn.disabled = false;
+  tracks.sort((a, b) => {
+    const ta = byTrack[a][0]?.uk_time || "";
+    const tb = byTrack[b][0]?.uk_time || "";
+    return ta.localeCompare(tb);
+  });
+
+  let html = '<div class="bew-card-row" style="opacity:.5;font-size:.68rem;border:none;background:none;padding:.2rem .8rem"><span style="font-weight:600;text-transform:uppercase">Racecard</span><span style="font-weight:600;text-transform:uppercase">Note</span><span style="font-weight:600;text-transform:uppercase">Bad EW Races</span></div>';
+  for (const track of tracks) {
+    const races = byTrack[track].sort((a, b) => a.race_number - b.race_number);
+    const raceEntries = races.map(r => {
+      const icon = r.bad_each_way ? '🔴' : '🟠';
+      return `<span class="bew-race">${icon} R${r.race_number} <span class="bew-time">${r.uk_time || "—"}</span></span>`;
+    }).join('<span class="bew-divider">|</span>');
+
+    const noteVal = bewNotes[track] || "";
+
+    html += `<div class="bew-card" data-track="${esc(track)}">
+      <div class="bew-card-row">
+        <span class="track-name" data-track="${esc(track)}">📍 ${esc(track)}</span>
+        <div class="bew-note"><input type="text" data-note-track="${esc(track)}" value="${esc(noteVal)}" placeholder="Add note..."></div>
+        <div class="bew-races"><span class="bew-divider">|</span> ${raceEntries} <span class="bew-divider">|</span></div>
+      </div>
+    </div>`;
+  }
+  list.innerHTML = html;
+
+  // Track name click → navigate to Full View
+  list.querySelectorAll(".track-name[data-track]").forEach(el => {
+    el.addEventListener("click", () => {
+      const trackName = el.dataset.track;
+      const merged2 = mergeExtraTracks(tracksData);
+      const ti = merged2.findIndex(t => t.track === trackName);
+      if (ti >= 0) {
+        document.querySelector('.view-tab[data-view="all"]').click();
+        setTimeout(() => {
+          const rc = $(`#rc-${ti}`);
+          if (rc) {
+            rc.classList.add("highlighted");
+            const headerH = document.querySelector('.app-header')?.offsetHeight || 60;
+            const y = rc.getBoundingClientRect().top + window.scrollY - headerH - 10;
+            window.scrollTo({ top: y, behavior: "smooth" });
+            setTimeout(() => rc.classList.remove("highlighted"), 3000);
+          }
+        }, 100);
+      }
+    });
+  });
+
+  // Auto-save notes on blur or Enter
+  list.querySelectorAll(".bew-note input").forEach(input => {
+    const save = () => {
+      const track = input.dataset.noteTrack;
+      const val = input.value.trim();
+      if (val) { bewNotes[track] = val; } else { delete bewNotes[track]; }
+      saveBewNotes();
+    };
+    input.addEventListener("blur", save);
+    input.addEventListener("keydown", e => { if (e.key === "Enter") { save(); input.blur(); } });
+  });
+}
+
+function buildBadEWCopyText() {
+  const merged = mergeExtraTracks(tracksData);
+  const byTrack = {};
+  for (const t of merged) {
+    for (const r of (t.races || [])) {
+      const rKey = `${t.track}-${r.race_number}`;
+      if (r.bad_each_way || r.nearly_bad_ew || everBadEW[rKey]) {
+        if (!byTrack[t.track]) byTrack[t.track] = [];
+        byTrack[t.track].push(r);
+      }
+    }
+  }
+  const tracks = Object.keys(byTrack);
+  if (!tracks.length) return "";
+  tracks.sort((a, b) => {
+    const ta = byTrack[a][0]?.uk_time || "";
+    const tb = byTrack[b][0]?.uk_time || "";
+    return ta.localeCompare(tb);
+  });
+  let lines = ["Racecards\tNote\tRaces"];
+  for (const track of tracks) {
+    const races = byTrack[track].sort((a, b) => a.race_number - b.race_number);
+    const note = bewNotes[track] || "\u2014";
+    const raceStr = races.map(r => "R" + r.race_number + " " + (r.uk_time || "\u2014")).join(" | ");
+    lines.push(track.toUpperCase() + "\t" + note + "\t" + raceStr);
+  }
+  return lines.join("\n");
+}
+
+function buildBadEWCopyHtml() {
+  const merged = mergeExtraTracks(tracksData);
+  const byTrack = {};
+  for (const t of merged) {
+    for (const r of (t.races || [])) {
+      const rKey = `${t.track}-${r.race_number}`;
+      if (r.bad_each_way || r.nearly_bad_ew || everBadEW[rKey]) {
+        if (!byTrack[t.track]) byTrack[t.track] = [];
+        byTrack[t.track].push(r);
+      }
+    }
+  }
+  const tracks = Object.keys(byTrack);
+  if (!tracks.length) return "";
+  tracks.sort((a, b) => {
+    const ta = byTrack[a][0]?.uk_time || "";
+    const tb = byTrack[b][0]?.uk_time || "";
+    return ta.localeCompare(tb);
+  });
+  let html = `<table cellpadding="0" cellspacing="0" style="font-family:Calibri,Arial,sans-serif;font-size:10pt;border-collapse:collapse;background:#fff;color:#1a1a1a">`;
+  html += `<tr><td style="padding:4px 10px;font-weight:600;font-size:9pt;color:#888;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #d4803a;border-right:1px solid #e8e8e8;white-space:nowrap">RACECARD</td><td style="padding:4px 10px;font-weight:600;font-size:9pt;color:#888;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #d4803a;border-right:1px solid #e8e8e8;white-space:nowrap">NOTE</td><td style="padding:4px 10px;font-weight:600;font-size:9pt;color:#888;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #d4803a">BAD EW RACES</td></tr>`;
+  for (const track of tracks) {
+    const races = byTrack[track].sort((a, b) => a.race_number - b.race_number);
+    const note = bewNotes[track] ? `<font color="#0969da">${esc(bewNotes[track])}</font>` : "";
+    const raceStr = races.map(r => `R${r.race_number} <b>${r.uk_time || "\u2014"}</b>`).join(" | ");
+    html += `<tr><td style="padding:5px 10px;vertical-align:top;border-bottom:1px solid #e8e8e8;border-right:1px solid #e8e8e8;white-space:nowrap"><b>${esc(track)}</b></td><td style="padding:5px 10px;vertical-align:top;border-bottom:1px solid #e8e8e8;border-right:1px solid #e8e8e8;color:#0969da;font-size:9pt;white-space:nowrap">${note}</td><td style="padding:5px 10px;vertical-align:top;border-bottom:1px solid #e8e8e8;white-space:nowrap">${raceStr}</td></tr>`;
+  }
+  html += `</table>`;
+  return html;
+}
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  let secondsLeft = 15;
+  countdownEl.textContent = `● LIVE · ${secondsLeft}s`;
+  countdownEl.style.color = "#56d364";
+  // Tick every second for countdown display
+  countdownInterval = setInterval(() => {
+    secondsLeft--;
+    if (secondsLeft <= 0) {
+      countdownEl.textContent = "● Refreshing...";
+      silentRefresh();
+      secondsLeft = 15;
+    } else {
+      countdownEl.textContent = `● LIVE · ${secondsLeft}s`;
+    }
+  }, 1000);
+}
+
+function stopAutoRefresh() {
+  if (countdownInterval) clearInterval(countdownInterval);
+  countdownInterval = null;
+  countdownEl.textContent = "";
+}
+
+let isPolling = false;
+async function silentRefresh() {
+  if (isPolling || !tracksData.length) return;
+  isPolling = true;
+  try {
+    const res = await fetch(`/api/prices?date=${selectedDate}`);
+    if (!res.ok) { isPolling = false; return; }
+    const data = await res.json();
+    const updates = data.updates || {};
+    if (!Object.keys(updates).length) { isPolling = false; return; }
+
+    // Merge prices into existing tracksData (never replace racecards)
+    const changes = {};
+    // Build a lookup for updates by race number, with fuzzy track matching
+    const updatesByRnum = {};
+    for (const [key, upd] of Object.entries(updates)) {
+      const [tname, rn] = key.split("|");
+      if (!updatesByRnum[rn]) updatesByRnum[rn] = [];
+      updatesByRnum[rn].push({ tname: tname.toLowerCase(), upd });
+    }
+
+    for (const t of tracksData) {
+      const trackLower = t.track.toLowerCase();
+      for (const race of t.races) {
+        // Try exact match first, then fuzzy
+        const exactKey = `${t.track.toUpperCase()}|${race.race_number}`;
+        let upd = updates[exactKey];
+        if (!upd) {
+          // Fuzzy: find update where TAB track name is contained in TheDogs name or vice versa
+          const candidates = updatesByRnum[String(race.race_number)] || [];
+          for (const c of candidates) {
+            if (trackLower.includes(c.tname) || c.tname.includes(trackLower) ||
+                trackLower.replace(/ladbrokes\s*/i, "").includes(c.tname) ||
+                c.tname.includes(trackLower.replace(/ladbrokes\s*/i, ""))) {
+              upd = c.upd;
+              break;
+            }
+          }
+        }
+        if (!upd) continue;
+
+        // Update status
+        const prevStatus = race.race_status;
+        if (upd.status) race.race_status = upd.status;
+        const justFinished = prevStatus === "open" && race.race_status === "finished";
+
+        // For finished races: update prices one last time if just transitioned
+        if (race.race_status === "finished" || race.race_status === "abandoned") {
+          if (justFinished) {
+            // One final price update with the last TAB prices
+            for (const runner of race.runners) {
+              if (runner.status !== "valid") continue;
+              const ru = upd.runners?.[runner.number];
+              if (ru && ru.tab_win) {
+                runner.tab_win = ru.tab_win;
+                runner.tab_win_pct = +(100 / ru.tab_win).toFixed(2);
+                const ewFrac = race.ew_fraction || 0.20;
+                const placeOdds = ((ru.tab_win - 1) * ewFrac) + 1;
+                runner.tab_ew_pct = placeOdds > 0 ? +(100 / placeOdds).toFixed(2) : null;
+              }
+            }
+          }
+          continue;
+        }
+
+        // Handle new scratchings — mark runners as nr/vacant (open races only)
+        const scratched = upd.scratched || [];
+        if (scratched.length) {
+          let countChanged = false;
+          for (const runner of race.runners) {
+            if (scratched.includes(runner.number) && runner.status === "valid") {
+              // Alert on new scratching
+              alerts.unshift({
+                key: `${t.track}-${race.race_number}-${runner.number}-scr`,
+                type: "scr", track: t.track, rnum: race.race_number,
+                runner: runner.name, runnerNum: runner.number,
+                uk_time: race.uk_time, ti: tracksData.indexOf(t), isNew: true,
+              });
+              runner.status = "nr";
+              runner.tab_win = null; runner.tab_win_pct = null; runner.tab_ew_pct = null;
+              countChanged = true;
+            }
+          }
+          if (countChanged) {
+            race.num_runners = race.runners.filter(r => r.status === "valid").length;
+            renderAlerts();
+          }
+        }
+
+        // Merge runner prices
+        for (const runner of race.runners) {
+          if (runner.status !== "valid") continue;
+          const ru = upd.runners?.[runner.number];
+          if (!ru) continue;
+
+          const rKey = `${t.track}-${race.race_number}`;
+          if (ru.tab_win && ru.tab_win !== runner.tab_win) {
+            changes[`${rKey}-${runner.number}-tab`] = { dir: runner.tab_win && ru.tab_win < runner.tab_win ? "down" : "up" };
+            runner.tab_win = ru.tab_win;
+            // Recalc TAB probabilities
+            runner.tab_win_pct = ru.tab_win ? +(100 / ru.tab_win).toFixed(2) : null;
+            const ewFrac = race.ew_fraction || 0.20;
+            const placeOdds = ((ru.tab_win - 1) * ewFrac) + 1;
+            runner.tab_ew_pct = placeOdds > 0 ? +(100 / placeOdds).toFixed(2) : null;
+          }
+        }
+
+        // Update live flags
+        const valid = race.runners.filter(r => r.status === "valid");
+        race.tab_live = valid.some(r => r.tab_win != null);
+
+        // Recalculate EW totals and Bad EW status after price changes
+        const rKey = `${t.track}-${race.race_number}`;
+        if (race.ew_places_paid > 0) {
+          let totalEW = 0;
+          for (const runner of valid) {
+            if (runner.tab_ew_pct != null) totalEW += runner.tab_ew_pct;
+          }
+          totalEW = +totalEW.toFixed(2);
+          race.total_ew_pct = totalEW;
+          const threshold = race.threshold || 0;
+          const wasBad = race.bad_each_way;
+          race.bad_each_way = totalEW > 0 && totalEW <= threshold;
+          race.nearly_bad_ew = !race.bad_each_way && totalEW > 0 && totalEW <= (threshold + 20);
+
+          // Update totals object
+          let totalWin = 0;
+          for (const runner of valid) {
+            if (runner.tab_win_pct != null) totalWin += runner.tab_win_pct;
+          }
+          if (!race.totals) race.totals = {};
+          race.totals.tab_total_win_pct = +totalWin.toFixed(2) || null;
+          race.totals.tab_total_ew_pct = totalEW || null;
+
+          // Alert on new Bad EW
+          if (race.bad_each_way && !wasBad && !alertedBefore[rKey]) {
+            alertedBefore[rKey] = true;
+            alerts.unshift({
+              key: rKey, type: "badew", track: t.track, rnum: race.race_number,
+              uk_time: race.uk_time, ti: tracksData.indexOf(t), isNew: true,
+            });
+            renderAlerts();
+          }
+        }
+        if (race.bad_each_way) everBadEW[rKey] = true;
+      }
+    }
+
+    // Animate price changes
+    if (Object.keys(changes).length > 0) {
+      window._priceChanges = { ...(window._priceChanges || {}), ...changes };
+      setTimeout(() => {
+        const cur = window._priceChanges || {};
+        for (const k of Object.keys(changes)) delete cur[k];
+      }, 10000);
+    }
+
+    // Update open detail panel
+    if (selectedCell) {
+      const [sti, srn] = selectedCell.split("-").map(Number);
+      const merged = mergeExtraTracks(tracksData);
+      const track = merged[sti];
+      const race = track?.races.find(r => r.race_number === srn);
+      if (race) openDetail(sti, race);
+    }
+
+    updateRaceDots();
+    saveDateCache();
+    if (currentView === "simple") renderSimpleView();
+    else if (currentView === "badew") renderBadEWView();
+  } catch {}
+  isPolling = false;
+}
+
+function updateRaceDots() {
+  const merged = mergeExtraTracks(tracksData);
+  for (let ti = 0; ti < merged.length; ti++) {
+    const t = merged[ti];
+    for (const r of (t.races || [])) {
+      const cell = main.querySelector(`.rc-cell[data-ti="${ti}"][data-rn="${r.race_number}"]`);
+      if (!cell) continue;
+      const hasTab = r.tab_live;
+      const isFinished = r.race_status === "finished";
+      let dotColor = "";
+      if (isFinished) dotColor = "#6e7681";
+      else if (hasTab) dotColor = "#56d364";
+      const dot = cell.querySelector(".r-dot");
+      if (dot && dotColor) dot.style.background = dotColor;
+
+      // Update Bad EW styling on cells
+      const rKey = `${t.track}-${r.race_number}`;
+      cell.classList.remove("bad-ew", "nearly-bad", "ever-bad", "new-bad");
+      if (r.bad_each_way) {
+        cell.classList.add("bad-ew");
+        if (!everBadEW[rKey]) cell.classList.add("new-bad");
+      } else if (r.nearly_bad_ew) {
+        cell.classList.add("nearly-bad");
+      } else if (everBadEW[rKey]) {
+        cell.classList.add("ever-bad");
+      }
+
+      // Update alert icon
+      let alertEl = cell.querySelector(".r-alert");
+      if (r.bad_each_way) {
+        if (!alertEl) { alertEl = document.createElement("span"); alertEl.className = "r-alert"; cell.appendChild(alertEl); }
+        alertEl.style.color = "#ff4444"; alertEl.style.fontSize = ".85rem"; alertEl.textContent = "🔴";
+      } else if (r.nearly_bad_ew) {
+        if (!alertEl) { alertEl = document.createElement("span"); alertEl.className = "r-alert"; cell.appendChild(alertEl); }
+        alertEl.style.color = "#ff9800"; alertEl.style.fontSize = ".85rem"; alertEl.textContent = "🟠";
+      } else if (alertEl) {
+        alertEl.remove();
+      }
+    }
+  }
+}
+
+let isFetching = false;
+async function fetchRaces() {
+  if (isFetching) return;
+  isFetching = true;
+  stopAutoRefresh();
+  loadStatus.className = "load-status";
+  loadStatus.innerHTML = '<span class="spinner"></span> Loading races…';
+  if (!tracksData.length) main.innerHTML = '<div class="loading">⏳ Fetching races…</div>';
+  try {
+    const res = await fetch(`/api/races?date=${selectedDate}`);
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    const newTracks = data.tracks || [];
+    detectChanges(newTracks);
+    tracksData = newTracks;
+    const openDetail_saved = selectedCell;
+    renderAll();
+    if (openDetail_saved) {
+      const [sti, srn] = openDetail_saved.split("-").map(Number);
+      const merged = mergeExtraTracks(tracksData);
+      const track = merged[sti];
+      const race = track?.races.find(r => r.race_number === srn);
+      if (race) {
+        openDetail(sti, race);
+        const hdr = main.querySelector(`.rc-hdr[data-hdr-ti="${sti}"][data-hdr-rn="${srn}"]`);
+        if (hdr) hdr.classList.add("selected");
+      }
+    }
+    isFirstLoad = false;
+    isFetching = false;
+    saveDateCache();
+    loadStatus.className = "load-status done";
+    loadStatus.innerHTML = "✓ Races loaded";
+    setTimeout(() => { loadStatus.textContent = ""; }, 2000);
+    renderRacecardList();
+    if (currentView === "simple") renderSimpleView();
+    else if (currentView === "badew") renderBadEWView();
+    startAutoRefresh();
+  } catch (e) {
+    if (!tracksData.length) main.innerHTML = `<div class="error-banner">⚠️ ${esc(e.message)}</div>`;
+    isFetching = false;
+    loadStatus.className = "load-status";
+    loadStatus.innerHTML = "⚠️ Fetch failed";
+    setTimeout(() => { loadStatus.textContent = ""; }, 3000);
+  }
+}
+
+function detectChanges(newTracks) {
+  const newPrices = {};
+  const newBadEW = {};
+  const changes = {};
+
+  for (const t of newTracks) {
+    for (const race of t.races) {
+      if (race.race_status === "abandoned") continue;
+      const rKey = `${t.track}-${race.race_number}`;
+      newBadEW[rKey] = race.bad_each_way;
+
+      if (race.bad_each_way) everBadEW[rKey] = true;
+
+      // Alert on new Bad EW transition (not on initial load)
+      if (!isFirstLoad && race.bad_each_way && !prevBadEW[rKey] && !alertedBefore[rKey]) {
+        alertedBefore[rKey] = true;
+        alerts.unshift({
+          key: rKey, track: t.track, rnum: race.race_number,
+          uk_time: race.uk_time, ti: newTracks.indexOf(t), isNew: true,
+        });
+      }
+
+      // Price changes (skip finished/abandoned)
+      if (race.race_status !== "open") continue;
+      for (const runner of race.runners) {
+        if (runner.status !== "valid") continue;
+        const pk = `${rKey}-${runner.number}-tab`;
+        const val = runner.tab_win;
+        newPrices[pk] = val;
+        if (!isFirstLoad && val != null && prevPrices[pk] != null && val !== prevPrices[pk]) {
+          changes[pk] = { dir: val < prevPrices[pk] ? "down" : "up" };
+        }
+      }
+    }
+  }
+  prevPrices = newPrices;
+  prevBadEW = newBadEW;
+  // Merge new changes into existing
+  const existing = window._priceChanges || {};
+  window._priceChanges = { ...existing, ...changes };
+  // Clear changes after 10 seconds (enough for arrow animation to play)
+  if (Object.keys(changes).length > 0) {
+    setTimeout(() => {
+      const current = window._priceChanges || {};
+      for (const k of Object.keys(changes)) {
+        delete current[k];
+      }
+    }, 10000);
+  }
+  if (alerts.length) renderAlerts();
+}
+
+function renderAlerts() {
+  if (!alerts.length) { alertList.innerHTML = '<div class="no-alerts">No alerts yet</div>'; return; }
+  alertList.innerHTML = alerts.map(a => {
+    if (a.type === "scr") {
+      return `<div class="alert-item" data-ti="${a.ti}" data-rnum="${a.rnum}" style="border-color:#e85d3a">
+        <div class="a-title" style="color:#e85d3a">🚫 SCR${a.isNew ? '<span class="a-new">NEW</span>' : ''}</div>
+        <div class="a-meta">${esc(a.track)} — R${a.rnum} · #${a.runnerNum} ${esc(a.runner||"")} · UK ${esc(a.uk_time||"")}</div>
+      </div>`;
+    }
+    return `<div class="alert-item" data-ti="${a.ti}" data-rnum="${a.rnum}">
+      <div class="a-title">⚠️ BAD EW${a.isNew ? '<span class="a-new">NEW</span>' : ''}</div>
+      <div class="a-meta">${esc(a.track)} — R${a.rnum} · UK ${esc(a.uk_time||"")}</div>
+    </div>`;
+  }).join("");
+  alertList.querySelectorAll(".alert-item").forEach(el => {
+    el.addEventListener("click", () => {
+      const ti = parseInt(el.dataset.ti), rn = parseInt(el.dataset.rnum);
+      const merged = mergeExtraTracks(tracksData);
+      const track = merged[ti];
+      const race = track && track.races.find(r => r.race_number === rn);
+      if (race) {
+        // Switch to Full View if not already
+        if (currentView !== "all") document.querySelector('.view-tab[data-view="all"]').click();
+        setTimeout(() => {
+          // Clear old header highlight, set new one
+          main.querySelectorAll(".rc-hdr.selected").forEach(h => h.classList.remove("selected"));
+          const hdr = main.querySelector(`.rc-hdr[data-hdr-ti="${ti}"][data-hdr-rn="${rn}"]`);
+          if (hdr) hdr.classList.add("selected");
+          selectedCell = `${ti}-${rn}`;
+          openDetail(ti, race);
+          const rc = $(`#rc-${ti}`);
+          if (rc) {
+            const headerH = document.querySelector('.app-header')?.offsetHeight || 60;
+            const y = rc.getBoundingClientRect().top + window.scrollY - headerH - 10;
+            window.scrollTo({ top: y, behavior: "smooth" });
+          }
+        }, 100);
+      }
+    });
+  });
+}
+
+function renderSimpleView() {
+  const merged = mergeExtraTracks(tracksData);
+  if (!merged.length) {
+    $("#simple-list").innerHTML = '<div class="no-alerts">No races loaded</div>';
+    $("#simple-summary").textContent = "";
+    return;
+  }
+
+  let totalRaces = 0;
+  for (const t of merged) totalRaces += (t.races || []).length;
+  $("#simple-summary").innerHTML = `${totalRaces} races analysed across ${merged.length} courses
+    <div class="sv-controls">
+      <button class="sv-toggle-btn" id="sv-toggle-all">Collapse All</button>
+    </div>`;
+
+  let html = '';
+  for (let ti = 0; ti < merged.length; ti++) {
+    const t = merged[ti];
+    const races = [...(t.races || [])].sort((a, b) => a.race_number - b.race_number);
+    if (!races.length) continue;
+
+    html += `<div class="sv-track" id="sv-track-${ti}">
+      <div class="sv-track-header" data-sv-ti="${ti}">▼ ${esc(t.track)} <span>(${races.length} races)</span></div>`;
+
+    // Column headers
+    html += `<div class="sv-race sv-collapsible" style="opacity:.6;font-size:.7rem">
+      <span class="sv-rnum sv-col-header"></span><span class="sv-time sv-col-header">TIME</span>
+      <span class="sv-ew sv-col-header">EW TERMS</span>
+      <span class="sv-divider"></span>
+      <span class="sv-runners sv-col-header">RUNNERS</span>
+      <span class="sv-col sv-col-header">TAB Win%</span><span class="sv-col sv-col-header">TAB EW%</span>
+      <span class="sv-threshold sv-col-header">Threshold</span><span class="sv-status sv-col-header">Status</span>
+    </div>`;
+
+    for (const r of races) {
+      const isBad = r.bad_each_way;
+      const isNear = r.nearly_bad_ew;
+      const cls = isBad ? "sv-race sv-collapsible sv-bad" : isNear ? "sv-race sv-collapsible sv-nearly" : "sv-race sv-collapsible";
+
+      const frac = r.ew_fraction > 0 ? `1/${Math.round(1/r.ew_fraction)}` : "—";
+      const places = r.ew_places_paid || 0;
+      const ewLabel = places > 0 ? `EW: ${frac} odds, Top ${places} places` : "Win Only";
+
+      const totals = r.totals || {};
+      const tWin = totals.tab_total_win_pct != null ? totals.tab_total_win_pct.toFixed(2) + "%" : "—";
+      const tEW = totals.tab_total_ew_pct != null ? totals.tab_total_ew_pct.toFixed(2) + "%" : "—";
+      const threshold = r.threshold ? r.threshold + "%" : "—";
+
+      let statusLabel = "";
+      if (isBad) statusLabel = '<span class="sv-bad-label">🔴 BAD EW</span>';
+      else if (isNear) statusLabel = '<span class="sv-near-label">🟠 NEAR</span>';
+      else statusLabel = '<span class="sv-ok">✓ OK</span>';
+
+      const ewColor = isBad ? 'color:#e85d3a;font-weight:700;font-size:.82rem' : isNear ? 'color:#e8853a;font-weight:600;font-size:.82rem' : 'color:#58a6ff;font-weight:600;font-size:.82rem';
+
+      // PH time always shows
+      const timeStr = `PH ${esc(r.ph_time || "—")} · UK ${esc(r.uk_time || "—")}`;
+
+      html += `<div class="${cls}">
+        <span class="sv-rnum">R${r.race_number}</span>
+        <span class="sv-time">${timeStr}</span>
+        <span class="sv-ew">${ewLabel}</span>
+        <span class="sv-divider"></span>
+        <span class="sv-runners">${r.num_runners || 0}</span>
+        <span class="sv-col sv-win">Win: ${tWin}</span>
+        <span class="sv-col sv-ewpct" style="${ewColor}">EW: ${tEW}</span>
+        <span class="sv-threshold">Threshold: ${threshold}</span>
+        ${statusLabel}
+      </div>`;
+    }
+    html += '</div>';
+  }
+  $("#simple-list").innerHTML = html;
+
+  // Track header collapse/expand
+  document.querySelectorAll(".sv-track-header[data-sv-ti]").forEach(hdr => {
+    hdr.addEventListener("click", () => {
+      const track = hdr.closest(".sv-track");
+      const rows = track.querySelectorAll(".sv-collapsible");
+      const isHidden = rows.length > 0 && rows[0].style.display === "none";
+      rows.forEach(r => r.style.display = isHidden ? "" : "none");
+      hdr.textContent = hdr.textContent.replace(/^[▼▶]/, isHidden ? "▼" : "▶");
+    });
+  });
+
+  // Single toggle button — default is expanded so button says "Collapse All"
+  const toggleBtn = $("#sv-toggle-all");
+  if (toggleBtn) toggleBtn.addEventListener("click", () => {
+    const allRows = document.querySelectorAll(".sv-collapsible");
+    const isExpanded = toggleBtn.textContent.trim() === "Collapse All";
+    allRows.forEach(r => r.style.display = isExpanded ? "none" : "");
+    document.querySelectorAll(".sv-track-header[data-sv-ti]").forEach(h => {
+      h.textContent = h.textContent.replace(/^[▼▶]/, isExpanded ? "▶" : "▼");
+    });
+    toggleBtn.textContent = isExpanded ? "Expand All" : "Collapse All";
+  });
+}
+
+function renderRacecardList() {
+  const el = $("#racecard-list");
+  if (!tracksData.length) { el.innerHTML = ""; return; }
+  const merged = mergeExtraTracks(tracksData);
+  let html = `<h3>📋 Racecards <span style="color:#58a6ff;font-weight:400;font-size:.75rem">(${merged.length})</span></h3>`;
+  for (let ti = 0; ti < merged.length; ti++) {
+    const t = merged[ti];
+    const count = (t.races || []).length;
+    html += `<div class="racecard-list-item" data-scroll-ti="${ti}">
+      <span class="rc-name">📍 ${esc(t.track)}</span>
+      <span class="rc-count">${count} races</span>
+    </div>`;
+  }
+  el.innerHTML = html;
+  el.querySelectorAll(".racecard-list-item").forEach(item => {
+    item.addEventListener("click", () => {
+      // Highlight list item
+      el.querySelectorAll(".racecard-list-item.active").forEach(a => a.classList.remove("active"));
+      item.classList.add("active");
+      const ti = item.dataset.scrollTi;
+
+      if (currentView === "simple") {
+        // Scroll to track in Race Analysis view and highlight
+        const svTrack = $(`#sv-track-${ti}`);
+        if (svTrack) {
+          // Remove previous highlights
+          document.querySelectorAll(".sv-track.highlighted").forEach(s => s.classList.remove("highlighted"));
+          svTrack.classList.add("highlighted");
+          const headerH = document.querySelector('.app-header')?.offsetHeight || 60;
+          const y = svTrack.getBoundingClientRect().top + window.scrollY - headerH - 10;
+          window.scrollTo({ top: y, behavior: "smooth" });
+          // Remove highlight after 2s
+          setTimeout(() => svTrack.classList.remove("highlighted"), 2000);
+        }
+      } else {
+        // Full View: scroll to racecard
+        main.querySelectorAll(".racecard.highlighted").forEach(r => r.classList.remove("highlighted"));
+        const rc = $(`#rc-${ti}`);
+        if (rc) {
+          rc.classList.add("highlighted");
+          const headerH = document.querySelector('.app-header')?.offsetHeight || 60;
+          const y = rc.getBoundingClientRect().top + window.scrollY - headerH - 10;
+          window.scrollTo({ top: y, behavior: "smooth" });
+        }
+      }
+    });
+  });
+}
+
+function fmtDate(iso) {
+  if (!iso) return "";
+  try { return new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "2-digit" }); } catch { return ""; }
+}
+
+function priceArrow(tk, rn, num, bk) {
+  const ch = (window._priceChanges || {})[`${tk}-${rn}-${num}-${bk}`];
+  if (!ch) return "";
+  return ch.dir === "up" ? '<span class="arrow-up">⬆</span>' : '<span class="arrow-down">⬇</span>';
+}
+
+function priceFlashClass(tk, rn, num, bk) {
+  const ch = (window._priceChanges || {})[`${tk}-${rn}-${num}-${bk}`];
+  if (!ch) return "";
+  return ch.dir === "up" ? "price-up" : "price-down";
+}
+</script>
+<script>
+let selectedCell = null; // track selected race cell
+
+function renderAll() {
+  if (!tracksData.length) { main.innerHTML = `<div class="empty-state">No races found</div>`; return; }
+
+  // Merge EXTRA tracks into their parent racecard
+  const merged = mergeExtraTracks(tracksData);
+
+  let html = '';
+  for (let ti = 0; ti < merged.length; ti++) {
+    const t = merged[ti];
+    const races = [...(t.races || [])].sort((a, b) => a.race_number - b.race_number);
+    if (!races.length) continue;
+    html += `<div class="racecard" id="rc-${ti}"><div class="rc-grid">
+      <div class="rc-info"><span class="track-name">📍 ${esc(t.track)}</span>
+        <span class="race-total">${races.length} races</span>
+        <span class="track-meta">${fmtDate(races[0].start_time)} · Australia · Greyhound</span></div>
+      <div class="rc-races"><div class="rc-header-row">`;
+    for (const r of races) {
+      const isExtra = r._extra;
+      const label = isExtra ? `R${r.race_number}*` : `R${r.race_number}`;
+      html += `<div class="rc-cell rc-hdr" data-hdr-ti="${ti}" data-hdr-rn="${r.race_number}">${label}</div>`;
+    }
+    html += `</div><div class="rc-data-row">`;
+    for (const r of races) {
+      const rKey = `${t.track}-${r.race_number}`;
+      const bad = r.bad_each_way;
+      const ever = everBadEW[rKey];
+      const isNewBad = !isFirstLoad && bad && !prevBadEW[rKey];
+      let cls = "rc-cell";
+      if (bad) cls += " bad-ew";
+      else if (r.nearly_bad_ew) cls += " nearly-bad";
+      else if (ever) cls += " ever-bad";
+      if (isNewBad) cls += " new-bad";
+
+      let statusTag = "";
+      if (r.race_status === "abandoned") statusTag = '<span class="r-status abandoned">ABD</span>';
+
+      // Status dot: grey=finished, green=TAB live
+      const hasTab = r.tab_live;
+      const isFinished = r.race_status === "finished";
+      let dotColor = "", dotTitle = "";
+      if (isFinished) { dotColor = "#6e7681"; dotTitle = "Finished"; }
+      else if (hasTab) { dotColor = "#56d364"; dotTitle = "TAB live"; }
+      const dot = dotColor ? `<span class="r-dot" style="background:${dotColor}" title="${dotTitle}"></span>` : '';
+
+      let alertTag = "";
+      if (bad) alertTag = '<span class="r-alert" style="color:#ff4444;font-size:.85rem">🔴</span>';
+      else if (r.nearly_bad_ew) alertTag = '<span class="r-alert" style="color:#ff9800;font-size:.85rem">🟠</span>';
+
+      html += `<div class="${cls}" data-ti="${ti}" data-rn="${r.race_number}" role="button" tabindex="0">
+        ${statusTag}
+        <span class="r-time" style="font-size:.7rem">${esc(r.uk_time || "—")}</span>
+        ${dot}
+        ${alertTag}
+      </div>`;
+    }
+    html += `</div></div></div></div><div class="detail-slot" id="slot-${ti}"></div>`;
+  }
+  main.innerHTML = html;
+  main.querySelectorAll(".rc-cell[data-ti]").forEach(cell => {
+    const handler = () => {
+      const ti = parseInt(cell.dataset.ti), rn = parseInt(cell.dataset.rn);
+      const track = merged[ti], race = track?.races.find(r => r.race_number === rn);
+      if (race) {
+        // Highlight selected header
+        main.querySelectorAll(".rc-hdr.selected").forEach(h => h.classList.remove("selected"));
+        const hdr = main.querySelector(`.rc-hdr[data-hdr-ti="${ti}"][data-hdr-rn="${rn}"]`);
+        if (hdr) hdr.classList.add("selected");
+        selectedCell = `${ti}-${rn}`;
+        openDetail(ti, race);
+      }
+    };
+    cell.addEventListener("click", handler);
+    cell.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handler(); } });
+  });
+}
+
+function mergeExtraTracks(tracks) {
+  const result = [];
+  const mainMap = {};  // baseName → track object
+  const extras = [];   // collect extras for second pass
+
+  // First pass: collect main tracks
+  for (const t of tracks) {
+    const name = t.track.toUpperCase();
+    const isExtra = name.includes("EXTRA") || name.includes("XTRA");
+    if (isExtra) {
+      extras.push(t);
+    } else {
+      mainMap[name] = t;
+      result.push(t);
+    }
+  }
+
+  // Second pass: merge extras, renumbering after the last main race
+  for (const t of extras) {
+    const name = t.track.toUpperCase();
+    const baseName = name.replace(/\s*EXTRA\s*/i, "").replace(/\s*XTRA\s*/i, "").trim();
+    const main = mainMap[baseName];
+    if (main) {
+      const maxRnum = Math.max(...main.races.map(r => r.race_number), 0);
+      const sortedExtra = [...t.races].sort((a, b) => a.race_number - b.race_number);
+      for (let i = 0; i < sortedExtra.length; i++) {
+        const r = sortedExtra[i];
+        r._extra = true;
+        r._originalRaceNumber = r.race_number;
+        r.race_number = maxRnum + i + 1;
+        main.races.push(r);
+      }
+    } else {
+      // No matching main track — show as standalone
+      result.push(t);
+    }
+  }
+
+  return result;
+}
+
+function openDetail(ti, race) {
+  const slot = $(`#slot-${ti}`);
+  const frac = race.ew_fraction > 0 ? `1/${Math.round(1/race.ew_fraction)}` : "—";
+  const ew = race.ew_places_paid > 0 ? `${frac} odds, Top ${race.ew_places_paid}` : "Win Only";
+  const extraNote = race._extra ? ' <span style="color:#d4a72c;font-size:.75rem">(EXTRA)</span>' : '';
+
+  if (race.race_status === "abandoned") {
+    slot.innerHTML = `<div class="detail-panel"><div class="detail-header">
+      <h2>📍 ${esc(race.track)} — R${race.race_number} · ABANDONED</h2>
+      <button class="detail-close" onclick="selectedCell=null;this.closest('.detail-panel').remove()">✕</button>
+    </div><div style="padding:1rem;color:#e85d3a;text-align:center">Race abandoned — no odds available</div></div>`;
+    return;
+  }
+
+  slot.innerHTML = buildDetail(race, ew);
+}
+
+function buildDetail(race, ew) {
+  const isFinished = race.race_status === "finished";
+  const statusLabel = isFinished ? ' · <span style="color:#8b949e">FINISHED</span>' : '';
+  let h = `<div class="detail-panel"><div class="detail-header"><div>
+    <h2>📍 ${esc(race.track)} — R${race.race_number}${race._extra ? ' (EXTRA)' : ''}${statusLabel}</h2>
+    <div class="detail-meta">
+      <span>🕐 PH ${esc(race.ph_time||"—")} · UK ${esc(race.uk_time||"—")}</span>
+      <span>🐕 ${race.num_runners} runners</span><span>EW: ${ew}</span>
+    </div></div>
+    <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+      <span class="detail-stat bad">Total EW: ${race.total_ew_pct!=null?race.total_ew_pct.toFixed(1):"—"}%</span>
+      <span class="detail-stat bad">Threshold: ${race.threshold}%</span>
+      <button class="detail-close" onclick="selectedCell=null;this.closest('.detail-panel').remove()">✕</button>
+    </div></div>
+    <div class="runner-wrap"><table class="runner-tbl"><thead><tr>
+      <th class="gh l" rowspan="2">Runner</th>
+      <th class="gh note-col" rowspan="2">Note</th>
+      <th class="gh" colspan="3">TAB</th>
+    </tr><tr>
+      <th>Win</th><th>Win%</th><th>EW%</th>
+    </tr></thead><tbody>`;
+
+  const tk = race.track, rn = race.race_number;
+  for (const r of race.runners) {
+    const st = r.status || "valid";
+    if (st === "vacant" || st === "nr") {
+      const label = st === "vacant" ? "VACANT" : `${esc(r.name)} N/R`;
+      h += `<tr class="runner-nr"><td class="l">${esc(String(r.number||""))}. ${label}</td>
+        <td class="note-col na">—</td>
+        <td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>`;
+    } else {
+      const tw = fO(r.tab_win) + (isFinished ? "" : priceArrow(tk,rn,r.number,"tab"));
+      const tFlash = isFinished ? "" : priceFlashClass(tk,rn,r.number,"tab");
+      const note = r.note ? `<span style="color:#d4a72c;font-size:.7rem">${esc(r.note)}</span>` : '';
+      h += `<tr><td class="l"><span class="rn">${esc(String(r.number||""))}. ${esc(r.name)}</span></td>
+        <td class="note-col">${note}</td>
+        <td class="ov ${tFlash}">${tw}</td><td class="${pc(r.tab_win_pct)}">${fP(r.tab_win_pct)}</td><td class="${pc(r.tab_ew_pct)}" style="font-weight:600;font-size:.82rem">${fP(r.tab_ew_pct)}</td></tr>`;
+    }
+  }
+  const t = race.totals || {}, th = race.threshold || 0;
+  const ewBad = v => v != null && th > 0 && v <= th;
+  h += `<tr style="border-top:2px solid #30363d;font-weight:700;background:#1c2128;color:#e1e4e8">
+    <td class="l" style="font-weight:700">TOTALS</td>
+    <td class="note-col"></td>
+    <td style="color:#8b949e">—</td><td style="color:#e1e4e8">${fT(t.tab_total_win_pct)}</td>
+    <td style="color:${ewBad(t.tab_total_ew_pct)?'#e85d3a':'#56d364'};font-weight:700;font-size:.85rem">${fT(t.tab_total_ew_pct)}</td></tr>`;
+  h += '</tbody></table></div></div>';
+  return h;
+}
+
+function fO(v){return v==null?'<span class="na">—</span>':v.toFixed(2)}
+function fP(v){return v==null?'<span class="na">—</span>':`<span class="p">${v.toFixed(1)}%</span>`}
+function fT(v){return v==null?'—':v.toFixed(2)+'%'}
+function pc(v){if(v==null)return"";if(v>=30)return"ph";if(v>=15)return"pm";return"pl"}
+function esc(s){const d=document.createElement("div");d.textContent=s;return d.innerHTML}
+
+// Auto-load Today on page open
+fetchRaces();
+</script>
+</body>
+</html>
