@@ -562,4 +562,5 @@ def _build_runner_odds(runner, tab_odds_map, race_status="open", track="", rnum=
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=False, host="0.0.0.0", port=port)
