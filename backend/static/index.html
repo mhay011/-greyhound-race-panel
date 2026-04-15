@@ -1341,8 +1341,10 @@ function buildDetail(race, ew) {
       <th class="gh l" rowspan="2">Runner</th>
       <th class="gh note-col" rowspan="2">Note</th>
       <th class="gh" colspan="3">TAB</th>
+      <th class="gh" colspan="3" style="border-left:2px solid #30363d">UNIBET</th>
     </tr><tr>
       <th>Win</th><th>Win%</th><th>EW%</th>
+      <th style="border-left:2px solid #30363d">Win</th><th>Win%</th><th>EW%</th>
     </tr></thead><tbody>`;
 
   const tk = race.track, rn = race.race_number;
@@ -1352,14 +1354,17 @@ function buildDetail(race, ew) {
       const label = st === "vacant" ? "VACANT" : `${esc(r.name)} N/R`;
       h += `<tr class="runner-nr"><td class="l">${esc(String(r.number||""))}. ${label}</td>
         <td class="note-col na">—</td>
-        <td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>`;
+        <td class="na">—</td><td class="na">—</td><td class="na">—</td>
+        <td class="na" style="border-left:2px solid #30363d">—</td><td class="na">—</td><td class="na">—</td></tr>`;
     } else {
       const tw = fO(r.tab_win) + (isFinished ? "" : priceArrow(tk,rn,r.number,"tab"));
       const tFlash = isFinished ? "" : priceFlashClass(tk,rn,r.number,"tab");
+      const uw = fO(r.unibet_win);
       const note = r.note ? `<span style="color:#d4a72c;font-size:.7rem">${esc(r.note)}</span>` : '';
       h += `<tr><td class="l"><span class="rn">${esc(String(r.number||""))}. ${esc(r.name)}</span></td>
         <td class="note-col">${note}</td>
-        <td class="ov ${tFlash}">${tw}</td><td class="${pc(r.tab_win_pct)}">${fP(r.tab_win_pct)}</td><td class="${pc(r.tab_ew_pct)}" style="font-weight:600;font-size:.82rem">${fP(r.tab_ew_pct)}</td></tr>`;
+        <td class="ov ${tFlash}">${tw}</td><td class="${pc(r.tab_win_pct)}">${fP(r.tab_win_pct)}</td><td class="${pc(r.tab_ew_pct)}" style="font-weight:600;font-size:.82rem">${fP(r.tab_ew_pct)}</td>
+        <td class="ov" style="border-left:2px solid #30363d">${uw}</td><td class="${pc(r.unibet_win_pct)}">${fP(r.unibet_win_pct)}</td><td class="${pc(r.unibet_ew_pct)}" style="font-weight:600;font-size:.82rem">${fP(r.unibet_ew_pct)}</td></tr>`;
     }
   }
   const t = race.totals || {}, th = race.threshold || 0;
@@ -1368,7 +1373,9 @@ function buildDetail(race, ew) {
     <td class="l" style="font-weight:700">TOTALS</td>
     <td class="note-col"></td>
     <td style="color:#8b949e">—</td><td style="color:#e1e4e8">${fT(t.tab_total_win_pct)}</td>
-    <td style="color:${ewBad(t.tab_total_ew_pct)?'#e85d3a':'#56d364'};font-weight:700;font-size:.85rem">${fT(t.tab_total_ew_pct)}</td></tr>`;
+    <td style="color:${ewBad(t.tab_total_ew_pct)?'#e85d3a':'#56d364'};font-weight:700;font-size:.85rem">${fT(t.tab_total_ew_pct)}</td>
+    <td style="color:#8b949e;border-left:2px solid #30363d">—</td><td style="color:#e1e4e8">${fT(t.unibet_total_win_pct)}</td>
+    <td style="color:${ewBad(t.unibet_total_ew_pct)?'#e85d3a':'#56d364'};font-weight:700;font-size:.85rem">${fT(t.unibet_total_ew_pct)}</td></tr>`;
   h += '</tbody></table></div></div>';
   return h;
 }

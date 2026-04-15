@@ -56,7 +56,7 @@ def get_races():
     except Exception as e:
         log.warning(f"TAB fetch failed: {e}")
 
-    # Build races from TheDogs if available, otherwise fall back to TAB, then Ladbrokes
+    # Build races from TheDogs if available, otherwise fall back to TAB, then Unibet
     if dogs_data and dogs_data.get("meetings"):
         races = _build_races_from_thedogs(dogs_data, tab_bundle)
         log.info(f"Built {len(races)} races from TheDogs schedule")
@@ -64,16 +64,23 @@ def get_races():
         races = _build_races_from_tab(tab_bundle)
         log.info(f"Fallback: built {len(races)} races from TAB")
     else:
-        # Final fallback: Ladbrokes API (always reachable)
+        # Final fallback: Unibet UK for runners + prices (not LADS — LADS marks all N/R when finished)
         try:
-            lads_races = fetch_greyhound_races(race_date)
-            if lads_races:
-                races = lads_races
-                log.info(f"Ladbrokes fallback: built {len(races)} races")
+            from services.unibet_service import fetch_unibet_meetings, _fetch_event, _extract_runners
+            ub_meetings = fetch_unibet_meetings(race_date)
+            if ub_meetings:
+                races = _build_races_from_unibet(ub_meetings, race_date)
+                log.info(f"Unibet fallback: built {len(races)} races")
             else:
-                return jsonify({"error": "No race data available."}), 502
+                # Last resort: Ladbrokes for schedule only
+                lads_races = fetch_greyhound_races(race_date)
+                if lads_races:
+                    races = lads_races
+                    log.info(f"Ladbrokes fallback: built {len(races)} races")
+                else:
+                    return jsonify({"error": "No race data available."}), 502
         except Exception as e:
-            log.warning(f"Ladbrokes fallback also failed: {e}")
+            log.warning(f"Unibet/Ladbrokes fallback failed: {e}")
             return jsonify({"error": "No race data available."}), 502
 
     # LADS scratchings skipped on initial load for speed
@@ -149,13 +156,16 @@ def get_races():
 
         all_runners.sort(key=lambda r: _safe_int(r.get("number")))
 
-        # N/R detection for finished races: no TAB price (live or frozen) = was scratched
+        # N/R detection for finished races: only mark as N/R if no price from ANY source
         # Open races: rely on TAB bettingStatus detection (LateScratched) + LADS scratchings
         race_st = race.get("race_status", "open")
         if race_st == "finished":
             new_valid = []
             for r in all_runners:
-                if r["status"] == "valid" and r.get("tab_win") is None:
+                has_any_price = (r.get("tab_win") is not None or
+                                 r.get("lads_win") is not None or
+                                 r.get("unibet_win") is not None)
+                if r["status"] == "valid" and not has_any_price:
                     r["status"] = "nr"
                 else:
                     if r["status"] == "valid":
@@ -559,6 +569,55 @@ def _build_races_from_thedogs(dogs_data, tab_bundle):
                 "race_id": f"{slug}-{rnum}",
                 "race_status": race_status,
             })
+
+    return races
+
+
+def _build_races_from_unibet(ub_meetings: dict, race_date: str) -> list:
+    """Build race list from Unibet UK lobby data + event details.
+    Used as fallback when TheDogs and TAB are unavailable."""
+    from services.unibet_service import _fetch_event, _extract_runners
+    from concurrent.futures import ThreadPoolExecutor
+
+    races = []
+    fetch_tasks = []
+
+    for slug, meeting in ub_meetings.items():
+        track = meeting["name"]
+        for ev in meeting["events"]:
+            race = {
+                "track": track,
+                "race_number": ev["sequence"],
+                "start_time": ev.get("start_time", ""),
+                "distance": "",
+                "runners": [],
+                "venue_slug": slug,
+                "race_id": ev["event_key"],
+                "race_status": "finished" if ev.get("status") in ("Final", "Resulted", "Paying") else "open",
+            }
+            races.append(race)
+            fetch_tasks.append((race, ev["event_key"]))
+
+    # Fetch all event details concurrently for runners
+    def _enrich(task):
+        race, event_key = task
+        try:
+            event_data = _fetch_event(event_key)
+            if event_data:
+                runners = _extract_runners(event_data)
+                for r in runners:
+                    race["runners"].append({
+                        "name": r["name"],
+                        "number": r["number"],
+                        "barrier": r["number"],
+                        "lads_win": None,
+                        "status": r["status"],
+                    })
+        except Exception:
+            pass
+
+    with ThreadPoolExecutor(max_workers=15) as pool:
+        list(pool.map(_enrich, fetch_tasks))
 
     return races
 

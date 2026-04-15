@@ -138,7 +138,7 @@ def _extract_runners(event_data: dict) -> list:
             "name": name,
             "number": str(start_pos) if start_pos else "",
             "unibet_win": unibet_win,
-            "status": "valid" if status == "Starter" else "nr",
+            "status": "vacant" if status == "Vacant Box" else ("nr" if status == "Non-Runner" else ("valid" if status == "Starter" else "nr")),
         })
 
     return runners
