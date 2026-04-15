@@ -345,41 +345,6 @@ def thedogs_schedule():
 
 @app.route("/api/unibet-test", methods=["GET"])
 def unibet_test():
-    """Debug: test Unibet UK API connectivity and response."""
-    import requests as req
-    race_date = request.args.get("date", date.today().isoformat())
-    results = []
-
-    # Test 1: Can we reach rsa.unibet.co.uk?
-    try:
-        r = req.get("https://rsa.unibet.co.uk/api/v1/graphql?operationName=LobbyMeetingListQuery"
-                     f"&variables=%7B%22countryCodes%22%3A%5B%5D%2C%22clientCountryCode%22%3A%22GB%22"
-                     f"%2C%22startDateTime%22%3A%22{race_date}T00%3A00%3A00.000Z%22"
-                     f"%2C%22endDateTime%22%3A%22{race_date}T23%3A59%3A59.000Z%22"
-                     f"%2C%22virtualStartDateTime%22%3A%22{race_date}T00%3A00%3A00.000Z%22"
-                     f"%2C%22virtualEndDateTime%22%3A%22{race_date}T23%3A59%3A59.000Z%22"
-                     f"%2C%22isRenderingVirtual%22%3Afalse%2C%22fetchTRC%22%3Afalse"
-                     f"%2C%22raceTypes%22%3A%5B%22G%22%5D%7D"
-                     f"&extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22"
-                     f"%3A%228c866a910971369c3114923ef7559f135a1347421e1cb19ea38da80c5a6c7db8%22%7D%7D",
-                     headers={
-                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                         "Accept": "application/json",
-                         "Origin": "https://www.unibet.co.uk",
-                         "Referer": "https://www.unibet.co.uk/racing",
-                     },
-                     timeout=10)
-        results.append(f"HTTP {r.status_code}")
-        results.append(f"Content-Type: {r.headers.get('content-type', '?')}")
-        results.append(f"Response (first 2000 chars): {r.text[:2000]}")
-    except Exception as e:
-        results.append(f"Connection error: {e}")
-
-    return jsonify({"results": results})
-
-
-@app.route("/api/unibet-test", methods=["GET"])
-def unibet_test():
     """Debug: test Unibet UK API connectivity and data."""
     from services.unibet_service import fetch_unibet_meetings, _fetch_lobby, BASE_URL, HEADERS, LOBBY_HASH
     import json as jlib
