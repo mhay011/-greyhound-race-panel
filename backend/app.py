@@ -346,30 +346,54 @@ def thedogs_schedule():
 @app.route("/api/unibet-test", methods=["GET"])
 def unibet_test():
     """Debug: test Unibet UK API connectivity and data."""
-    from services.unibet_service import fetch_unibet_meetings, _fetch_lobby, BASE_URL, HEADERS, LOBBY_HASH
+    from services.unibet_service import BASE_URL, HEADERS, LOBBY_HASH
     import json as jlib
+    import requests as req
     race_date = request.args.get("date", date.today().isoformat())
     results = []
 
     # Step 1: Raw HTTP test
     try:
-        import requests as req
         r = req.get(BASE_URL, params={"operationName": "test"}, headers=HEADERS, timeout=10)
         results.append(f"Raw API test: HTTP {r.status_code}, ct={r.headers.get('content-type','?')}")
         results.append(f"First 200 chars: {r.text[:200]}")
     except Exception as e:
         results.append(f"Raw API test FAILED: {e}")
 
-    # Step 2: Lobby fetch
+    # Step 2: Raw lobby query with full response
     try:
-        meetings = fetch_unibet_meetings(race_date)
-        results.append(f"\nLobby: {len(meetings)} AU greyhound meetings")
-        for slug, m in list(meetings.items())[:5]:
-            results.append(f"  {m['name']} ({slug}): {len(m['events'])} events, key={m['meeting_key']}")
-            if m['events']:
-                results.append(f"    First event key: {m['events'][0]['event_key']}")
+        from datetime import date as d, timedelta as td
+        dt = d.fromisoformat(race_date)
+        prev = dt - td(days=1)
+        start_dt = f"{prev.isoformat()}T16:00:00.000Z"
+        end_dt = f"{dt.isoformat()}T16:00:00.000Z"
+
+        variables = {
+            "countryCodes": [],
+            "clientCountryCode": "GB",
+            "startDateTime": start_dt,
+            "endDateTime": end_dt,
+            "virtualStartDateTime": start_dt,
+            "virtualEndDateTime": end_dt,
+            "isRenderingVirtual": True,
+            "fetchTRC": False,
+            "raceTypes": ["G"],
+        }
+        extensions = {
+            "persistedQuery": {"version": 1, "sha256Hash": LOBBY_HASH}
+        }
+        params = {
+            "operationName": "LobbyMeetingListQuery",
+            "variables": jlib.dumps(variables),
+            "extensions": jlib.dumps(extensions),
+        }
+
+        results.append(f"\nLobby query date range: {start_dt} to {end_dt}")
+        r2 = req.get(BASE_URL, params=params, headers=HEADERS, timeout=15)
+        results.append(f"Lobby HTTP: {r2.status_code}, ct={r2.headers.get('content-type','?')}")
+        results.append(f"Lobby response (first 3000 chars): {r2.text[:3000]}")
     except Exception as e:
-        results.append(f"Lobby FAILED: {e}")
+        results.append(f"Lobby raw FAILED: {e}")
 
     return jsonify({"output": "\n".join(results)})
 
