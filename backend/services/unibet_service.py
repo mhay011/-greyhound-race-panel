@@ -152,12 +152,21 @@ def fetch_unibet_meetings(race_date: str) -> dict:
         return _lobby_cache["data"]
 
     all_meetings = _fetch_lobby(race_date)
+    log.info(f"Unibet lobby returned {len(all_meetings)} total meetings")
+    for m in all_meetings[:3]:
+        log.info(f"  Sample meeting: key={m.get('meetingKey','?')} country={m.get('countryCode','?')} type={m.get('raceType','?')} name={m.get('name','?')}")
 
     au_greyhounds = {}
     for meeting in all_meetings:
+        meeting_key = meeting.get("meetingKey", "")
+        # Check for AUS in meeting key (format: YYYYMMDDNNNN.G.AUS.track)
+        # Also check countryCode field as fallback
         country = meeting.get("countryCode", "")
+        is_aus = ".AUS." in meeting_key or country in ("AUS", "AU")
         race_type = meeting.get("raceType", "")
-        if country != "AUS" or race_type != "G":
+        is_greyhound = race_type == "G" or ".G." in meeting_key
+
+        if not is_aus or not is_greyhound:
             continue
 
         name = meeting.get("name", "")
