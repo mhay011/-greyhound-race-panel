@@ -391,7 +391,21 @@ def unibet_test():
         results.append(f"\nLobby query date range: {start_dt} to {end_dt}")
         r2 = req.get(BASE_URL, params=params, headers=HEADERS, timeout=15)
         results.append(f"Lobby HTTP: {r2.status_code}, ct={r2.headers.get('content-type','?')}")
-        results.append(f"Lobby response (first 3000 chars): {r2.text[:3000]}")
+
+        if r2.status_code == 200 and "json" in r2.headers.get("content-type", ""):
+            data = r2.json()
+            meetings = data.get("data", {}).get("meetingList", [])
+            results.append(f"Total meetings: {len(meetings)}")
+            for m in meetings:
+                mk = m.get("meetingKey", "?")
+                name = m.get("name", "?")
+                country = m.get("countryCode", "?")
+                rtype = m.get("raceType", "?")
+                n_events = len(m.get("events", []))
+                is_aus = ".AUS." in mk
+                results.append(f"  {'>>> ' if is_aus else ''}{name} | key={mk} | country={country} | type={rtype} | events={n_events}")
+        else:
+            results.append(f"Lobby response: {r2.text[:1000]}")
     except Exception as e:
         results.append(f"Lobby raw FAILED: {e}")
 
