@@ -374,7 +374,7 @@ def unibet_test():
             "startDateTime": start_dt,
             "endDateTime": end_dt,
             "virtualStartDateTime": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-            "virtualEndDateTime": (datetime.utcnow() + timedelta(hours=5)).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+            "virtualEndDateTime": (datetime.utcnow() + td(hours=5)).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
             "isRenderingVirtual": True,
             "fetchTRC": False,
             "raceTypes": ["T", "H", "G"],
