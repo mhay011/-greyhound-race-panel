@@ -105,7 +105,11 @@ def _fetch_event(event_key: str) -> dict | None:
         if r.status_code != 200:
             return None
         data = r.json()
-        return data.get("data", {}).get("event")
+        # Try multiple paths for the event data
+        event = data.get("data", {}).get("event")
+        if not event:
+            event = data.get("data", {})
+        return event
     except Exception:
         return None
 
@@ -113,33 +117,63 @@ def _fetch_event(event_key: str) -> dict | None:
 def _extract_runners(event_data: dict) -> list:
     """Extract runner names and FixedWin prices from event response."""
     runners = []
-    competitors = event_data.get("competitors", [])
+    
+    # Try multiple paths for competitors
+    competitors = (event_data.get("competitors") or 
+                   event_data.get("Competitors") or
+                   event_data.get("event", {}).get("competitors") or
+                   [])
 
     for comp in competitors:
-        name = comp.get("name", "")
-        status = comp.get("status", "")
-        start_pos = comp.get("startPos")
+        name = comp.get("name", comp.get("Name", ""))
+        status = comp.get("status", comp.get("Status", ""))
+        start_pos = comp.get("startPos", comp.get("StartPos", comp.get("startPosition")))
 
         unibet_win = None
-        prices = comp.get("prices", [])
+        prices = comp.get("prices", comp.get("Prices", []))
         for pg in prices:
-            if pg.get("betType") == "FixedWin":
-                # Look for Current price in flucs
-                for fluc in pg.get("flucs", []):
-                    if fluc.get("productType") == "Current":
-                        unibet_win = fluc.get("price")
-                        break
-                # Fallback to top-level price
+            bet_type = pg.get("betType", pg.get("BetType", ""))
+            if bet_type in ("FixedWin", "FXD"):
+                # Look for price in flucs
+                flucs = pg.get("flucs", pg.get("Flucs", []))
+                for fluc in flucs:
+                    pt = fluc.get("productType", fluc.get("ProductType", ""))
+                    if pt in ("Current", "Flux", "Max"):
+                        p = fluc.get("price", fluc.get("Price"))
+                        if p and p > 1.0:
+                            unibet_win = p
+                            break
+                # Fallback to top-level price in the price group
                 if unibet_win is None:
-                    unibet_win = pg.get("price")
+                    p = pg.get("price", pg.get("Price"))
+                    if p and p > 1.0:
+                        unibet_win = p
                 break
+        
+        # Also check top-level price field on competitor
+        if unibet_win is None:
+            top_price = comp.get("price", comp.get("Price"))
+            if top_price and isinstance(top_price, (int, float)) and top_price > 1.0:
+                unibet_win = top_price
+
+        # Determine status
+        if status in ("Vacant Box", "VacantBox"):
+            r_status = "vacant"
+        elif status in ("Non-Runner", "NonRunner", "Scratched"):
+            r_status = "nr"
+        elif status in ("Starter", "Active", "Open"):
+            r_status = "valid"
+        else:
+            r_status = "valid" if unibet_win else "nr"
 
         runners.append({
             "name": name,
             "number": str(start_pos) if start_pos else "",
             "unibet_win": unibet_win,
-            "status": "vacant" if status == "Vacant Box" else ("nr" if status == "Non-Runner" else ("valid" if status == "Starter" else "nr")),
+            "status": r_status,
         })
+
+    return runners
 
     return runners
 
