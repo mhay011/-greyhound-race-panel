@@ -40,9 +40,13 @@ _lobby_cache = {"date": None, "data": None}
 
 def _fetch_lobby(race_date: str) -> list:
     """Fetch all meetings for a date via LobbyMeetingListQuery."""
-    # Unibet uses AU racing day boundary: 4pm previous day to 4pm current day (UTC)
-    start_dt = f"{race_date}T00:00:00.000Z"
-    end_dt = f"{race_date}T23:59:59.000Z"
+    # Unibet uses AU racing day: previous day 16:00 UTC to current day 16:00 UTC
+    # This covers the full AU racing day (2am AEST to 2am AEST next day)
+    from datetime import date as d, timedelta as td
+    dt = d.fromisoformat(race_date)
+    prev = dt - td(days=1)
+    start_dt = f"{prev.isoformat()}T16:00:00.000Z"
+    end_dt = f"{dt.isoformat()}T16:00:00.000Z"
 
     variables = json.dumps({
         "countryCodes": [],
@@ -51,7 +55,7 @@ def _fetch_lobby(race_date: str) -> list:
         "endDateTime": end_dt,
         "virtualStartDateTime": start_dt,
         "virtualEndDateTime": end_dt,
-        "isRenderingVirtual": False,
+        "isRenderingVirtual": True,
         "fetchTRC": False,
         "raceTypes": ["G"],
     })
