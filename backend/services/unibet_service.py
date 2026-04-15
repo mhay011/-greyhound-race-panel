@@ -103,13 +103,14 @@ def _fetch_event(event_key: str) -> dict | None:
     try:
         r = requests.get(BASE_URL, params=params, headers=HEADERS, timeout=TIMEOUT)
         if r.status_code != 200:
+            log.warning(f"Unibet event {event_key}: HTTP {r.status_code}")
             return None
         data = r.json()
-        # Try multiple paths for the event data
         event = data.get("data", {}).get("event")
-        if not event:
-            event = data.get("data", {})
-        return event
+        if event and event.get("competitors"):
+            return event
+        log.warning(f"Unibet event {event_key}: no competitors in response")
+        return None
     except Exception:
         return None
 

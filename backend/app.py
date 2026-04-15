@@ -626,6 +626,7 @@ def _build_races_from_unibet(ub_meetings: dict, race_date: str) -> list:
             event_data = _fetch_event(event_key)
             if event_data:
                 runners = _extract_runners(event_data)
+                log.info(f"Unibet {race['track']} R{race['race_number']}: {len(runners)} runners from {event_key}")
                 for r in runners:
                     race["runners"].append({
                         "name": r["name"],
@@ -634,8 +635,10 @@ def _build_races_from_unibet(ub_meetings: dict, race_date: str) -> list:
                         "lads_win": None,
                         "status": r["status"],
                     })
-        except Exception:
-            pass
+            else:
+                log.warning(f"Unibet {race['track']} R{race['race_number']}: no event data for {event_key}")
+        except Exception as e:
+            log.warning(f"Unibet enrich failed {event_key}: {e}")
 
     with ThreadPoolExecutor(max_workers=15) as pool:
         list(pool.map(_enrich, fetch_tasks))
