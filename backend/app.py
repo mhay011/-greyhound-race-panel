@@ -373,11 +373,11 @@ def unibet_test():
             "clientCountryCode": "GB",
             "startDateTime": start_dt,
             "endDateTime": end_dt,
-            "virtualStartDateTime": start_dt,
-            "virtualEndDateTime": end_dt,
+            "virtualStartDateTime": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+            "virtualEndDateTime": (datetime.utcnow() + timedelta(hours=5)).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
             "isRenderingVirtual": True,
             "fetchTRC": False,
-            "raceTypes": ["G"],
+            "raceTypes": ["T", "H", "G"],
         }
         extensions = {
             "persistedQuery": {"version": 1, "sha256Hash": LOBBY_HASH}
