@@ -108,7 +108,10 @@ def _fetch_event(event_key: str) -> dict | None:
         data = r.json()
         event = data.get("data", {}).get("event")
         if event is None:
-            log.warning(f"Unibet event {event_key}: no 'event' in response. Keys: {list(data.get('data', {}).keys())}")
+            # Try alternative path: data.viewer
+            event = data.get("data", {}).get("viewer")
+        if event is None:
+            log.warning(f"Unibet event {event_key}: no 'event' or 'viewer' in response. Keys: {list(data.get('data', {}).keys())}")
             return None
         comps = event.get("competitors")
         if comps is None:
