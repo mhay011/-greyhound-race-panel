@@ -1,21 +1,17 @@
 """
 Service for fetching AU greyhound odds from Unibet UK GraphQL API.
 
-Endpoint: https://rsa.unibet.co.uk/api/v1/graphql
+Flow:
+1. LobbyMeetingListQuery → all meetings with event keys
+2. Filter to AUS greyhounds
+3. EventQuery per race → runner names + FixedWin prices
+
 No auth required. Works globally (not geo-restricted to AU).
-
-Event key format: {YYYYMMDD}0{sequence}.G.AUS.{track_slug}.{race_number}
-Example: 20260415010.G.AUS.sale.1
-
-Price data includes:
-- FixedWin (FXD) with Current, Max, Last prices
-- Runner name, status, trainer, form
 """
 import logging
 import json
-import re
 import requests
-from datetime import date
+from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 
 log = logging.getLogger(__name__)
@@ -33,33 +29,64 @@ HEADERS = {
     "Sec-Fetch-Site": "same-site",
 }
 
-# Persisted query hash from Unibet's frontend
-EVENT_QUERY_HASH = "22398826cd61fa578855ad6e42998d2637c622adcb39ade2ab8481a7aaf5d08f1"
+LOBBY_HASH = "8c866a910971369c3114923ef7559f135a1347421e1cb19ea38da80c5a6c7db8"
+EVENT_HASH = "398826cdf61fa578855ad6e42998d2637c622adcb39ade2ab8481a7aaf5d08f1"
 TIMEOUT = 10
-POOL_SIZE = 10
+POOL_SIZE = 15
+
+# Cache lobby data per date
+_lobby_cache = {"date": None, "data": None}
 
 
-def _build_event_key(race_date: str, track_slug: str, race_number: int) -> str:
-    """
-    Build Unibet event key.
-    Format: {YYYYMMDD}010.G.AUS.{track_slug}.{race_number}
-    """
-    d = race_date.replace("-", "")
-    slug = track_slug.lower().replace(" ", "_").replace("-", "_").replace("'", "")
-    return f"{d}010.G.AUS.{slug}.{race_number}"
+def _fetch_lobby(race_date: str) -> list:
+    """Fetch all meetings for a date via LobbyMeetingListQuery."""
+    # Unibet uses AU racing day boundary: 4pm previous day to 4pm current day (UTC)
+    start_dt = f"{race_date}T00:00:00.000Z"
+    end_dt = f"{race_date}T23:59:59.000Z"
+
+    variables = json.dumps({
+        "countryCodes": [],
+        "clientCountryCode": "GB",
+        "startDateTime": start_dt,
+        "endDateTime": end_dt,
+        "virtualStartDateTime": start_dt,
+        "virtualEndDateTime": end_dt,
+        "isRenderingVirtual": False,
+        "fetchTRC": False,
+        "raceTypes": ["G"],
+    })
+    extensions = json.dumps({
+        "persistedQuery": {"version": 1, "sha256Hash": LOBBY_HASH}
+    })
+
+    params = {
+        "operationName": "LobbyMeetingListQuery",
+        "variables": variables,
+        "extensions": extensions,
+    }
+
+    try:
+        r = requests.get(BASE_URL, params=params, headers=HEADERS, timeout=TIMEOUT)
+        if r.status_code != 200:
+            log.warning(f"Unibet lobby: HTTP {r.status_code}")
+            return []
+        data = r.json()
+        meetings = data.get("data", {}).get("meetingList", [])
+        return meetings
+    except Exception as e:
+        log.warning(f"Unibet lobby fetch failed: {e}")
+        return []
 
 
 def _fetch_event(event_key: str) -> dict | None:
-    """Fetch a single race event from Unibet GraphQL API."""
+    """Fetch a single race event via EventQuery."""
     variables = json.dumps({
         "clientCountryCode": "GB",
         "eventKey": event_key,
+        "fetchTRC": False,
     })
     extensions = json.dumps({
-        "persistedQuery": {
-            "version": 1,
-            "sha256Hash": EVENT_QUERY_HASH,
-        }
+        "persistedQuery": {"version": 1, "sha256Hash": EVENT_HASH}
     })
 
     params = {
@@ -74,13 +101,12 @@ def _fetch_event(event_key: str) -> dict | None:
             return None
         data = r.json()
         return data.get("data", {}).get("event")
-    except Exception as e:
-        log.warning(f"Unibet fetch failed for {event_key}: {e}")
+    except Exception:
         return None
 
 
-def _extract_prices(event_data: dict) -> list:
-    """Extract runner prices from Unibet event response."""
+def _extract_runners(event_data: dict) -> list:
+    """Extract runner names and FixedWin prices from event response."""
     runners = []
     competitors = event_data.get("competitors", [])
 
@@ -89,19 +115,19 @@ def _extract_prices(event_data: dict) -> list:
         status = comp.get("status", "")
         start_pos = comp.get("startPos")
 
-        # Extract FixedWin price
         unibet_win = None
         prices = comp.get("prices", [])
-        for price_group in prices:
-            if price_group.get("betType") == "FixedWin":
-                flucs = price_group.get("flucs", [])
-                for fluc in flucs:
+        for pg in prices:
+            if pg.get("betType") == "FixedWin":
+                # Look for Current price in flucs
+                for fluc in pg.get("flucs", []):
                     if fluc.get("productType") == "Current":
                         unibet_win = fluc.get("price")
                         break
                 # Fallback to top-level price
                 if unibet_win is None:
-                    unibet_win = price_group.get("price")
+                    unibet_win = pg.get("price")
+                break
 
         runners.append({
             "name": name,
@@ -113,54 +139,89 @@ def _extract_prices(event_data: dict) -> list:
     return runners
 
 
+def fetch_unibet_meetings(race_date: str) -> dict:
+    """
+    Fetch all AU greyhound meetings and their event keys from Unibet.
+    Cached per date.
+    """
+    if _lobby_cache["date"] == race_date and _lobby_cache["data"] is not None:
+        return _lobby_cache["data"]
+
+    all_meetings = _fetch_lobby(race_date)
+
+    au_greyhounds = {}
+    for meeting in all_meetings:
+        country = meeting.get("countryCode", "")
+        race_type = meeting.get("raceType", "")
+        if country != "AUS" or race_type != "G":
+            continue
+
+        name = meeting.get("name", "")
+        meeting_key = meeting.get("meetingKey", "")
+        slug = name.lower().replace(" ", "_").replace("'", "")
+
+        events = []
+        for ev in meeting.get("events", []):
+            events.append({
+                "event_key": ev.get("eventKey", ""),
+                "sequence": ev.get("sequence", 0),
+                "status": ev.get("status", ""),
+                "start_time": ev.get("eventDateTimeUtc", ""),
+            })
+
+        au_greyhounds[slug] = {
+            "name": name,
+            "meeting_key": meeting_key,
+            "events": sorted(events, key=lambda e: e["sequence"]),
+        }
+
+    log.info(f"Unibet: {len(au_greyhounds)} AU greyhound meetings found")
+    _lobby_cache["date"] = race_date
+    _lobby_cache["data"] = au_greyhounds
+    return au_greyhounds
+
+
 def fetch_unibet_odds_for_race(race_date: str, track_slug: str, race_number: int) -> list | None:
     """
-    Fetch Unibet UK odds for a single AU greyhound race.
-
-    Returns list of {name, number, unibet_win, status} or None if unavailable.
+    Fetch Unibet odds for a single race.
+    Uses the lobby to find the correct event key, then fetches prices.
     """
-    event_key = _build_event_key(race_date, track_slug, race_number)
-    event_data = _fetch_event(event_key)
-    if not event_data:
-        # Try alternative slug formats
-        alt_slugs = [
-            track_slug.lower().replace(" ", ""),
-            track_slug.lower().replace(" ", "_"),
-            track_slug.lower().replace(" ", "-"),
-        ]
-        for slug in alt_slugs:
-            alt_key = f"{race_date.replace('-', '')}010.G.AUS.{slug}.{race_number}"
-            event_data = _fetch_event(alt_key)
-            if event_data:
+    meetings = fetch_unibet_meetings(race_date)
+
+    # Try to match track slug
+    slug_clean = track_slug.lower().replace(" ", "_").replace("-", "_").replace("'", "")
+    meeting = meetings.get(slug_clean)
+
+    # Fuzzy match if exact slug doesn't work
+    if not meeting:
+        for key, m in meetings.items():
+            if slug_clean in key or key in slug_clean:
+                meeting = m
+                break
+            # Also try matching the meeting name
+            m_name = m["name"].lower().replace(" ", "_")
+            if slug_clean in m_name or m_name in slug_clean:
+                meeting = m
                 break
 
+    if not meeting:
+        return None
+
+    # Find the event for this race number
+    event_key = None
+    for ev in meeting["events"]:
+        if ev["sequence"] == race_number:
+            event_key = ev["event_key"]
+            break
+
+    if not event_key:
+        return None
+
+    event_data = _fetch_event(event_key)
     if not event_data:
         return None
 
-    return _extract_prices(event_data)
-
-
-def fetch_unibet_odds_for_meeting(race_date: str, track_slug: str, num_races: int) -> dict:
-    """
-    Fetch Unibet odds for all races at a meeting.
-
-    Returns dict: {race_number: [runner_odds_list]}
-    """
-    results = {}
-
-    def _fetch_race(rnum):
-        odds = fetch_unibet_odds_for_race(race_date, track_slug, rnum)
-        return rnum, odds
-
-    with ThreadPoolExecutor(max_workers=POOL_SIZE) as pool:
-        futures = [pool.submit(_fetch_race, r) for r in range(1, num_races + 1)]
-        for f in futures:
-            rnum, odds = f.result()
-            if odds:
-                results[rnum] = odds
-
-    log.info(f"Unibet: {track_slug} - got odds for {len(results)}/{num_races} races")
-    return results
+    return _extract_runners(event_data)
 
 
 def match_unibet_odds_to_runner(runner_name: str, runner_number: str, unibet_runners: list) -> float | None:
