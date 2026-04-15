@@ -34,7 +34,7 @@ EVENT_HASH = "398826cdf61fa578855ad6e42998d2637c622adcb39ade2ab8481a7aaf5d08f1"
 TIMEOUT = 10
 POOL_SIZE = 15
 
-# Cache lobby data per date
+# Cache lobby data per date (cleared on redeploy)
 _lobby_cache = {"date": None, "data": None}
 
 
