@@ -198,6 +198,8 @@ def get_races():
             "venue_slug": race.get("venue_slug", ""),
             "race_status": race.get("race_status", "open"),
             "tab_live": any(r.get("tab_win") is not None for r in valid_runners),
+            "unibet_live": any(r.get("unibet_win") is not None for r in valid_runners),
+            "price_status": _get_price_status(race.get("race_status", "open"), valid_runners),
             "totals": ew_eval.get("totals", {}),
         })
 
@@ -444,6 +446,23 @@ def unibet_test():
         results.append(f"Lobby raw FAILED: {e}")
 
     return jsonify({"output": "\n".join(results)})
+
+
+def _get_price_status(race_status: str, valid_runners: list) -> str:
+    """Determine price status for a race."""
+    if race_status == "finished":
+        return "finished"
+    if race_status == "abandoned":
+        return "abandoned"
+    has_tab = any(r.get("tab_win") is not None for r in valid_runners)
+    has_unibet = any(r.get("unibet_win") is not None for r in valid_runners)
+    if has_tab and has_unibet:
+        return "tab+unibet"
+    elif has_tab:
+        return "tab_only"
+    elif has_unibet:
+        return "unibet_only"
+    return "no_prices"
 
 
 def _safe_int(val):

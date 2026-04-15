@@ -299,7 +299,9 @@ body.light .rc-info .race-total{color:#0969da}
         <span class="countdown" id="countdown"></span>
       </div>
       <div class="legend">
-        <span class="legend-item"><span class="r-dot" style="background:#56d364"></span> TAB live</span>
+        <span class="legend-item"><span class="r-dot" style="background:#56d364"></span> TAB+Unibet</span>
+        <span class="legend-item"><span class="r-dot" style="background:#58a6ff"></span> TAB only</span>
+        <span class="legend-item"><span class="r-dot" style="background:#f0a050"></span> Unibet only</span>
         <span class="legend-item"><span class="r-dot" style="background:#6e7681"></span> Finished</span>
         <span class="legend-item">🔴 Bad EW</span>
         <span class="legend-item">🟠 Nearly</span>
@@ -846,10 +848,13 @@ function updateRaceDots() {
       const cell = main.querySelector(`.rc-cell[data-ti="${ti}"][data-rn="${r.race_number}"]`);
       if (!cell) continue;
       const hasTab = r.tab_live;
+      const hasUnibet = r.unibet_live;
       const isFinished = r.race_status === "finished";
       let dotColor = "";
       if (isFinished) dotColor = "#6e7681";
-      else if (hasTab) dotColor = "#56d364";
+      else if (hasTab && hasUnibet) dotColor = "#56d364";
+      else if (hasTab) dotColor = "#58a6ff";
+      else if (hasUnibet) dotColor = "#f0a050";
       const dot = cell.querySelector(".r-dot");
       if (dot && dotColor) dot.style.background = dotColor;
 
@@ -1225,12 +1230,15 @@ function renderAll() {
       let statusTag = "";
       if (r.race_status === "abandoned") statusTag = '<span class="r-status abandoned">ABD</span>';
 
-      // Status dot: grey=finished, green=TAB live
+      // Status dot: grey=finished, green=TAB+Unibet, blue=TAB, orange=Unibet
       const hasTab = r.tab_live;
+      const hasUnibet = r.unibet_live;
       const isFinished = r.race_status === "finished";
       let dotColor = "", dotTitle = "";
       if (isFinished) { dotColor = "#6e7681"; dotTitle = "Finished"; }
-      else if (hasTab) { dotColor = "#56d364"; dotTitle = "TAB live"; }
+      else if (hasTab && hasUnibet) { dotColor = "#56d364"; dotTitle = "TAB + Unibet"; }
+      else if (hasTab) { dotColor = "#58a6ff"; dotTitle = "TAB only"; }
+      else if (hasUnibet) { dotColor = "#f0a050"; dotTitle = "Unibet only"; }
       const dot = dotColor ? `<span class="r-dot" style="background:${dotColor}" title="${dotTitle}"></span>` : '';
 
       let alertTag = "";
@@ -1331,6 +1339,7 @@ function buildDetail(race, ew) {
     <div class="detail-meta">
       <span>🕐 PH ${esc(race.ph_time||"—")} · UK ${esc(race.uk_time||"—")}</span>
       <span>🐕 ${race.num_runners} runners</span><span>EW: ${ew}</span>
+      <span>${priceStatusBadge(race)}</span>
     </div></div>
     <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
       <span class="detail-stat bad">Total EW: ${race.total_ew_pct!=null?race.total_ew_pct.toFixed(1):"—"}%</span>
@@ -1383,6 +1392,19 @@ function buildDetail(race, ew) {
 function fO(v){return v==null?'<span class="na">—</span>':v.toFixed(2)}
 function fP(v){return v==null?'<span class="na">—</span>':`<span class="p">${v.toFixed(1)}%</span>`}
 function fT(v){return v==null?'—':v.toFixed(2)+'%'}
+function priceStatusBadge(race) {
+  const s = race.price_status || "no_prices";
+  const map = {
+    "finished": {label:"Finished", bg:"#30363d", color:"#8b949e"},
+    "abandoned": {label:"Abandoned", bg:"#3d1f1f", color:"#f8a0a0"},
+    "tab+unibet": {label:"TAB + Unibet", bg:"#1f3a2a", color:"#56d364"},
+    "tab_only": {label:"TAB", bg:"#1a3a5c", color:"#58a6ff"},
+    "unibet_only": {label:"Unibet", bg:"#3a2a1f", color:"#f0a050"},
+    "no_prices": {label:"No Prices", bg:"#21262d", color:"#6e7681"},
+  };
+  const c = map[s] || map["no_prices"];
+  return `<span style="background:${c.bg};color:${c.color};padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:600">● ${c.label}</span>`;
+}
 function pc(v){if(v==null)return"";if(v>=30)return"ph";if(v>=15)return"pm";return"pl"}
 function esc(s){const d=document.createElement("div");d.textContent=s;return d.innerHTML}
 
