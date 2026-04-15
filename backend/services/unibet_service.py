@@ -75,7 +75,8 @@ def _fetch_lobby(race_date: str) -> list:
             log.warning(f"Unibet lobby: HTTP {r.status_code}")
             return []
         data = r.json()
-        meetings = data.get("data", {}).get("meetingList", [])
+        viewer = data.get("data", {}).get("viewer", {})
+        meetings = viewer.get("meetings", [])
         return meetings
     except Exception as e:
         log.warning(f"Unibet lobby fetch failed: {e}")
