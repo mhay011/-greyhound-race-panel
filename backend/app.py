@@ -121,10 +121,12 @@ def get_races():
                 # Pass through lads_win if present on runner (Ladbrokes fallback)
                 if runner.get("lads_win") and not odds.get("lads_win"):
                     odds["lads_win"] = runner["lads_win"]
-                # Add Unibet price
-                ub_price = match_unibet_odds_to_runner(
-                    runner.get("name", ""), str(number), unibet_runners or []
-                )
+                # Add Unibet price — from runner data (Unibet fallback) or separate fetch
+                ub_price = runner.get("unibet_win")
+                if ub_price is None:
+                    ub_price = match_unibet_odds_to_runner(
+                        runner.get("name", ""), str(number), unibet_runners or []
+                    )
                 odds["unibet_win"] = ub_price
                 probs = calculate_runner_probabilities(odds, ew_fraction)
                 entry = {
@@ -633,6 +635,7 @@ def _build_races_from_unibet(ub_meetings: dict, race_date: str) -> list:
                         "number": r["number"],
                         "barrier": r["number"],
                         "lads_win": None,
+                        "unibet_win": r.get("unibet_win"),
                         "status": r["status"],
                     })
             else:
