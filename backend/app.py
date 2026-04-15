@@ -156,21 +156,23 @@ def get_races():
 
         all_runners.sort(key=lambda r: _safe_int(r.get("number")))
 
-        # N/R detection for finished races: only mark as N/R if no price from ANY source
-        # Open races: rely on TAB bettingStatus detection (LateScratched) + LADS scratchings
+        # N/R detection for finished races
+        # Only apply TAB-based N/R detection when TAB data is available
+        # When using Unibet fallback, runner status is already set correctly
         race_st = race.get("race_status", "open")
-        if race_st == "finished":
+        has_tab = any(r.get("tab_win") is not None for r in all_runners if r.get("status") == "valid")
+        if race_st == "finished" and has_tab:
             new_valid = []
             for r in all_runners:
-                has_any_price = (r.get("tab_win") is not None or
-                                 r.get("lads_win") is not None or
-                                 r.get("unibet_win") is not None)
-                if r["status"] == "valid" and not has_any_price:
+                if r["status"] == "valid" and r.get("tab_win") is None:
                     r["status"] = "nr"
                 else:
                     if r["status"] == "valid":
                         new_valid.append(r)
             valid_runners = new_valid
+        elif race_st == "finished":
+            # No TAB data — trust the existing status (from Unibet/TheDogs)
+            valid_runners = [r for r in all_runners if r.get("status") == "valid"]
 
         num_runners = len(valid_runners)
         ew_eval = evaluate_each_way_value(valid_runners, num_runners)
@@ -407,14 +409,47 @@ def unibet_test():
             viewer = data.get("data", {}).get("viewer", {})
             meetings = viewer.get("meetings", [])
             results.append(f"Total meetings: {len(meetings)}")
+            
+            # Find first AUS greyhound meeting and test event fetch
+            test_event_key = None
             for m in meetings:
-                mk = m.get("meetingKey", "?")
+                mk = m.get("meetingKey", "")
                 name = m.get("name", "?")
                 country = m.get("countryCode", "?")
                 rtype = m.get("raceType", "?")
-                n_events = len(m.get("events", []))
+                events = m.get("events", [])
                 is_aus = ".AUS." in mk
-                results.append(f"  {'>>> ' if is_aus else ''}{name} | key={mk} | country={country} | type={rtype} | events={n_events}")
+                results.append(f"  {'>>> ' if is_aus else ''}{name} | key={mk} | country={country} | type={rtype} | events={len(events)}")
+                if is_aus and events and not test_event_key:
+                    test_event_key = events[0].get("eventKey")
+                    results.append(f"    Will test event: {test_event_key}")
+
+            # Test fetching a single event
+            if test_event_key:
+                from services.unibet_service import EVENT_HASH
+                ev_vars = jlib.dumps({"clientCountryCode": "GB", "eventKey": test_event_key, "fetchTRC": False})
+                ev_ext = jlib.dumps({"persistedQuery": {"version": 1, "sha256Hash": EVENT_HASH}})
+                ev_params = {"operationName": "EventQuery", "variables": ev_vars, "extensions": ev_ext}
+                r3 = req.get(BASE_URL, params=ev_params, headers=HEADERS, timeout=10)
+                results.append(f"\nEvent fetch HTTP: {r3.status_code}")
+                if r3.status_code == 200 and "json" in r3.headers.get("content-type", ""):
+                    ev_data = r3.json()
+                    results.append(f"Event top keys: {list(ev_data.keys())}")
+                    event = ev_data.get("data", {}).get("event")
+                    if event:
+                        results.append(f"Event keys: {list(event.keys())}")
+                        comps = event.get("competitors", [])
+                        results.append(f"Competitors: {len(comps)}")
+                        if comps:
+                            c = comps[0]
+                            results.append(f"First competitor keys: {list(c.keys())}")
+                            results.append(f"First competitor: name={c.get('name')} status={c.get('status')} startPos={c.get('startPos')}")
+                            results.append(f"First competitor prices: {jlib.dumps(c.get('prices', []), default=str)[:500]}")
+                    else:
+                        results.append(f"No event in response. data keys: {list(ev_data.get('data', {}).keys())}")
+                        results.append(f"Raw: {r3.text[:1000]}")
+                else:
+                    results.append(f"Event response: {r3.text[:500]}")
         else:
             results.append(f"Lobby response: {r2.text[:1000]}")
     except Exception as e:
