@@ -394,16 +394,22 @@ def unibet_test():
 
         if r2.status_code == 200 and "json" in r2.headers.get("content-type", ""):
             data = r2.json()
-            meetings = data.get("data", {}).get("meetingList", [])
-            results.append(f"Total meetings: {len(meetings)}")
-            for m in meetings:
-                mk = m.get("meetingKey", "?")
-                name = m.get("name", "?")
-                country = m.get("countryCode", "?")
-                rtype = m.get("raceType", "?")
-                n_events = len(m.get("events", []))
-                is_aus = ".AUS." in mk
-                results.append(f"  {'>>> ' if is_aus else ''}{name} | key={mk} | country={country} | type={rtype} | events={n_events}")
+            # Show raw top-level keys
+            results.append(f"Top keys: {list(data.keys())}")
+            if "data" in data:
+                results.append(f"data keys: {list(data['data'].keys())}")
+                for k, v in data['data'].items():
+                    if isinstance(v, list):
+                        results.append(f"  data.{k}: list of {len(v)} items")
+                        if v:
+                            results.append(f"    First item keys: {list(v[0].keys()) if isinstance(v[0], dict) else type(v[0])}")
+                            results.append(f"    First item: {jlib.dumps(v[0], default=str)[:500]}")
+                    elif isinstance(v, dict):
+                        results.append(f"  data.{k}: dict with keys {list(v.keys())}")
+                    else:
+                        results.append(f"  data.{k}: {v}")
+            else:
+                results.append(f"Raw response: {jlib.dumps(data, default=str)[:2000]}")
         else:
             results.append(f"Lobby response: {r2.text[:1000]}")
     except Exception as e:
