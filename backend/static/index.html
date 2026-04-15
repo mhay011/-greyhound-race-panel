@@ -74,7 +74,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 .rc-hdr.selected{background:#1f6feb !important;color:#fff !important}
 .rc-cell .r-status{font-size:.6rem;font-weight:700;order:-1}
 .r-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
-.detail-panel{background:#161b22;border:1px solid #d4803a;border-radius:0 0 8px 8px;margin-top:-1px;margin-bottom:.6rem;overflow:hidden;animation:fadeIn .15s ease;display:inline-block;min-width:550px}
+.detail-panel{background:#161b22;border:1px solid #d4803a;border-radius:0 0 8px 8px;margin-top:-1px;margin-bottom:.6rem;overflow:hidden;animation:fadeIn .15s ease;display:inline-block;min-width:750px;max-width:95%}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .detail-header{padding:.7rem 1rem;background:#1c2128;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.4rem}
 .detail-header h2{font-size:1rem;font-weight:600}
@@ -131,7 +131,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 .sv-track{margin-bottom:1rem}
 .sv-track-header{font-size:.9rem;font-weight:600;color:#e1e4e8;padding:.4rem .5rem;border-bottom:1px solid #30363d;margin-bottom:.3rem;cursor:pointer;user-select:none}
 .sv-track-header span{color:#8b949e;font-weight:400;font-size:.8rem}
-.sv-race{display:grid;grid-template-columns:36px 130px 200px 2px 55px 100px 100px 120px 80px;align-items:center;gap:0 .4rem;padding:.35rem .5rem;border-radius:4px;font-size:.8rem;border-left:3px solid transparent}
+.sv-race{display:grid;grid-template-columns:36px 130px 200px 2px 55px 100px 100px 2px 100px 100px 2px 120px 80px;align-items:center;gap:0 .4rem;padding:.35rem .5rem;border-radius:4px;font-size:.8rem;border-left:3px solid transparent}
 .sv-race:hover{background:#161b22}
 .sv-race.sv-bad{border-left-color:#e85d3a;background:#1a0808}
 .sv-race.sv-nearly{border-left-color:#e8853a;background:#1a1208}
@@ -148,6 +148,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 .sv-bad-label{color:#e85d3a;font-weight:700}
 .sv-near-label{color:#e8853a;font-weight:600}
 .sv-divider{width:2px;background:#3b82f6;align-self:stretch;justify-self:center}
+.sv-sep{width:1px;background:#30363d;align-self:stretch;justify-self:center;margin:0 2px}
 .sv-controls{display:flex;gap:.5rem;margin-bottom:.6rem}
 .sv-toggle-btn{background:none;border:1px solid #30363d;color:#8b949e;padding:.2rem .6rem;border-radius:4px;cursor:pointer;font-size:.72rem}
 .sv-toggle-btn:hover{background:#21262d;color:#e1e4e8}
@@ -1058,6 +1059,9 @@ function renderSimpleView() {
       <span class="sv-divider"></span>
       <span class="sv-runners sv-col-header">RUNNERS</span>
       <span class="sv-col sv-col-header">TAB Win%</span><span class="sv-col sv-col-header">TAB EW%</span>
+      <span class="sv-sep"></span>
+      <span class="sv-col sv-col-header">UB Win%</span><span class="sv-col sv-col-header">UB EW%</span>
+      <span class="sv-sep"></span>
       <span class="sv-threshold sv-col-header">Threshold</span><span class="sv-status sv-col-header">Status</span>
     </div>`;
 
@@ -1073,6 +1077,8 @@ function renderSimpleView() {
       const totals = r.totals || {};
       const tWin = totals.tab_total_win_pct != null ? totals.tab_total_win_pct.toFixed(2) + "%" : "—";
       const tEW = totals.tab_total_ew_pct != null ? totals.tab_total_ew_pct.toFixed(2) + "%" : "—";
+      const uWin = totals.unibet_total_win_pct != null ? totals.unibet_total_win_pct.toFixed(2) + "%" : "—";
+      const uEW = totals.unibet_total_ew_pct != null ? totals.unibet_total_ew_pct.toFixed(2) + "%" : "—";
       const threshold = r.threshold ? r.threshold + "%" : "—";
 
       let statusLabel = "";
@@ -1081,6 +1087,8 @@ function renderSimpleView() {
       else statusLabel = '<span class="sv-ok">✓ OK</span>';
 
       const ewColor = isBad ? 'color:#e85d3a;font-weight:700;font-size:.82rem' : isNear ? 'color:#e8853a;font-weight:600;font-size:.82rem' : 'color:#58a6ff;font-weight:600;font-size:.82rem';
+
+      const uEwColor = isBad ? 'color:#e85d3a;font-weight:700;font-size:.82rem' : isNear ? 'color:#e8853a;font-weight:600;font-size:.82rem' : 'color:#f0a050;font-weight:600;font-size:.82rem';
 
       // PH time always shows
       const timeStr = `PH ${esc(r.ph_time || "—")} · UK ${esc(r.uk_time || "—")}`;
@@ -1093,6 +1101,10 @@ function renderSimpleView() {
         <span class="sv-runners">${r.num_runners || 0}</span>
         <span class="sv-col sv-win">Win: ${tWin}</span>
         <span class="sv-col sv-ewpct" style="${ewColor}">EW: ${tEW}</span>
+        <span class="sv-sep"></span>
+        <span class="sv-col sv-win" style="color:#f0a050">Win: ${uWin}</span>
+        <span class="sv-col sv-ewpct" style="${uEwColor}">EW: ${uEW}</span>
+        <span class="sv-sep"></span>
         <span class="sv-threshold">Threshold: ${threshold}</span>
         ${statusLabel}
       </div>`;
