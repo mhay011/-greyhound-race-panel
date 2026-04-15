@@ -431,25 +431,11 @@ def unibet_test():
                 ev_ext = jlib.dumps({"persistedQuery": {"version": 1, "sha256Hash": EVENT_HASH}})
                 ev_params = {"operationName": "EventQuery", "variables": ev_vars, "extensions": ev_ext}
                 r3 = req.get(BASE_URL, params=ev_params, headers=HEADERS, timeout=10)
-                results.append(f"\nEvent fetch HTTP: {r3.status_code}")
-                if r3.status_code == 200 and "json" in r3.headers.get("content-type", ""):
-                    ev_data = r3.json()
-                    results.append(f"Event top keys: {list(ev_data.keys())}")
-                    event = ev_data.get("data", {}).get("event")
-                    if event:
-                        results.append(f"Event keys: {list(event.keys())}")
-                        comps = event.get("competitors", [])
-                        results.append(f"Competitors: {len(comps)}")
-                        if comps:
-                            c = comps[0]
-                            results.append(f"First competitor keys: {list(c.keys())}")
-                            results.append(f"First competitor: name={c.get('name')} status={c.get('status')} startPos={c.get('startPos')}")
-                            results.append(f"First competitor prices: {jlib.dumps(c.get('prices', []), default=str)[:500]}")
-                    else:
-                        results.append(f"No event in response. data keys: {list(ev_data.get('data', {}).keys())}")
-                        results.append(f"Raw: {r3.text[:1000]}")
-                else:
-                    results.append(f"Event response: {r3.text[:500]}")
+                results.append(f"\nEvent key: {test_event_key}")
+                results.append(f"Event fetch HTTP: {r3.status_code}")
+                # Dump the FULL raw response
+                results.append(f"FULL RAW RESPONSE:")
+                results.append(r3.text[:5000])
         else:
             results.append(f"Lobby response: {r2.text[:1000]}")
     except Exception as e:
