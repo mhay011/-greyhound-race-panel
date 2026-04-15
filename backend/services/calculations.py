@@ -31,7 +31,7 @@ def calc_implied_prob(odds):
 
 def calculate_runner_probabilities(runner_odds: dict, ew_fraction: float = 0.20) -> dict:
     result = {}
-    for prefix, win_key in [("lads", "lads_win"), ("tab", "tab_win")]:
+    for prefix, win_key in [("lads", "lads_win"), ("tab", "tab_win"), ("unibet", "unibet_win")]:
         win = runner_odds.get(win_key)
         result[f"{prefix}_win_pct"] = calc_implied_prob(win)
         result[f"{prefix}_ew_pct"] = calc_implied_prob(calc_place_odds(win, ew_fraction))
@@ -52,6 +52,8 @@ def calculate_sportsbook_totals(runners):
         "lads_total_ew_pct": _sum_pcts(runners, "lads_ew_pct"),
         "tab_total_win_pct": _sum_pcts(runners, "tab_win_pct"),
         "tab_total_ew_pct": _sum_pcts(runners, "tab_ew_pct"),
+        "unibet_total_win_pct": _sum_pcts(runners, "unibet_win_pct"),
+        "unibet_total_ew_pct": _sum_pcts(runners, "unibet_ew_pct"),
     }
 
 
@@ -65,9 +67,10 @@ def evaluate_each_way_value(runners, num_runners, is_handicap=False):
 
     threshold = places_paid * 100
 
-    # Priority: LADS → TAB
+    # Priority: LADS → Unibet → TAB
     ew_pct_sources = [
         ("LADS", totals["lads_total_ew_pct"]),
+        ("Unibet", totals["unibet_total_ew_pct"]),
         ("TAB", totals["tab_total_ew_pct"]),
     ]
 

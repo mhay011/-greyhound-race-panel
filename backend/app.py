@@ -1,5 +1,5 @@
 """Main Flask application for Australian Greyhound Race Panel.
-Price sources: LADS (UK), TAB, LADS AU
+Price sources: LADS (UK), TAB, Unibet UK
 """
 import os, re, logging
 from flask import Flask, jsonify, request, send_from_directory
@@ -11,6 +11,7 @@ import pytz
 from services.ladbrokes_service import fetch_greyhound_races
 from services.tab_service import fetch_tab_odds_for_date, match_tab_odds_to_race
 from services.thedogs_service import fetch_all_for_date as fetch_thedogs
+from services.unibet_service import fetch_unibet_odds_for_race, match_unibet_odds_to_runner
 from services.calculations import (
     calculate_runner_probabilities,
     evaluate_each_way_value,
@@ -84,7 +85,17 @@ def get_races():
         track = race.get("track", "?")
         rnum = race.get("race_number", "?")
         tab_c = sum(1 for v in tab_odds_map.values() if v.get("tab_win")) if tab_odds_map else 0
-        log.info(f"{track} R{rnum}: map={len(tab_odds_map)} tab={tab_c}")
+
+        # Fetch Unibet UK odds for this race
+        venue_slug = race.get("venue_slug", track.lower().replace(" ", "_"))
+        unibet_runners = None
+        try:
+            unibet_runners = fetch_unibet_odds_for_race(race_date, venue_slug, rnum)
+        except Exception as e:
+            log.warning(f"Unibet fetch failed {track} R{rnum}: {e}")
+
+        ub_c = len([r for r in (unibet_runners or []) if r.get("unibet_win")]) if unibet_runners else 0
+        log.info(f"{track} R{rnum}: map={len(tab_odds_map)} tab={tab_c} unibet={ub_c}")
         times = _convert_race_time(race.get("start_time", ""))
 
         all_runners = []
@@ -103,6 +114,11 @@ def get_races():
                 # Pass through lads_win if present on runner (Ladbrokes fallback)
                 if runner.get("lads_win") and not odds.get("lads_win"):
                     odds["lads_win"] = runner["lads_win"]
+                # Add Unibet price
+                ub_price = match_unibet_odds_to_runner(
+                    runner.get("name", ""), str(number), unibet_runners or []
+                )
+                odds["unibet_win"] = ub_price
                 probs = calculate_runner_probabilities(odds, ew_fraction)
                 entry = {
                     "name": runner.get("name", "Unknown"),
@@ -115,6 +131,9 @@ def get_races():
                     "tab_win": odds["tab_win"],
                     "tab_win_pct": probs["tab_win_pct"],
                     "tab_ew_pct": probs["tab_ew_pct"],
+                    "unibet_win": ub_price,
+                    "unibet_win_pct": probs.get("unibet_win_pct"),
+                    "unibet_ew_pct": probs.get("unibet_ew_pct"),
                     "note": runner.get("_note", ""),
                 }
                 all_runners.append(entry)
@@ -125,6 +144,7 @@ def get_races():
                     "number": number, "barrier": "", "status": status,
                     "lads_win": None, "lads_win_pct": None, "lads_ew_pct": None,
                     "tab_win": None, "tab_win_pct": None, "tab_ew_pct": None,
+                    "unibet_win": None, "unibet_win_pct": None, "unibet_ew_pct": None,
                 })
 
         all_runners.sort(key=lambda r: _safe_int(r.get("number")))
